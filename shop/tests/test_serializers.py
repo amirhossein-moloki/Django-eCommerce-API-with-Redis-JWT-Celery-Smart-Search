@@ -1,8 +1,9 @@
+
 from django.contrib.auth import get_user_model
 from django.test import TestCase
 from rest_framework.exceptions import ValidationError
 
-from shop.models import Category
+from shop.models import Category, Product, Attribute
 from shop.serializers import ProductSerializer
 
 User = get_user_model()
@@ -18,15 +19,36 @@ class ProductSerializerTest(TestCase):
             'price': '25.50',
             'stock': 100,
             'category': self.category.slug,
-            'weight': 1.5,
-            'length': 10,
-            'width': 10,
-            'height': 10,
+            'attributes_data': [
+                {'attribute_name': 'Weight', 'value': '1.5'},
+                {'attribute_name': 'Length', 'value': '10'},
+            ]
         }
 
     def test_valid_data(self):
         serializer = ProductSerializer(data=self.valid_data, context={'request': type('Request', (), {'user': self.user})})
         self.assertTrue(serializer.is_valid(), serializer.errors)
+
+    def test_create_product_with_attributes(self):
+        serializer = ProductSerializer(data=self.valid_data, context={'request': type('Request', (), {'user': self.user})})
+        self.assertTrue(serializer.is_valid(), serializer.errors)
+        product = serializer.save(user=self.user)
+        self.assertEqual(product.attributes.count(), 2)
+        self.assertTrue(product.attributes.filter(attribute__name='Weight', value='1.5').exists())
+
+    def test_update_product_with_attributes(self):
+        product = Product.objects.create(name='Old Product', description='desc', price=10, stock=10, category=self.category, user=self.user)
+        update_data = {
+            'attributes_data': [
+                {'attribute_name': 'Color', 'value': 'Red'},
+            ]
+        }
+        serializer = ProductSerializer(instance=product, data=update_data, partial=True, context={'request': type('Request', (), {'user': self.user})})
+        self.assertTrue(serializer.is_valid(), serializer.errors)
+        updated_product = serializer.save()
+        self.assertEqual(updated_product.attributes.count(), 1)
+        self.assertTrue(updated_product.attributes.filter(attribute__name='Color', value='Red').exists())
+
 
     def test_name_is_required(self):
         data = self.valid_data.copy()
@@ -55,13 +77,3 @@ class ProductSerializerTest(TestCase):
         serializer = ProductSerializer(data=data)
         self.assertFalse(serializer.is_valid())
         self.assertIn('category', serializer.errors)
-
-    def test_dimensions_must_be_positive(self):
-        fields_to_test = ['weight', 'length', 'width', 'height']
-        for field in fields_to_test:
-            with self.subTest(field=field):
-                data = self.valid_data.copy()
-                data[field] = -5
-                serializer = ProductSerializer(data=data)
-                self.assertFalse(serializer.is_valid())
-                self.assertIn(field, serializer.errors)
