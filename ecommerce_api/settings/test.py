@@ -1,5 +1,8 @@
 from .base import *
 
+# Set a dummy secret key for the test environment
+SECRET_KEY = 'dummy-secret-key-for-testing'
+
 # Use dummy cache for tests to avoid side effects
 CACHES = {
     'default': {
