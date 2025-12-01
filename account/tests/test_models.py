@@ -10,22 +10,21 @@ class UserModelTest(TestCase):
 
     def setUp(self):
         self.user = User.objects.create_user(
-            email='testuser@example.com',
+            phone_number='+989123456789',
             username='testuser',
             password='password123',
-            phone_number='+989123456789',
             first_name='Test',
             last_name='User'
         )
 
     def test_create_user(self):
         self.assertEqual(User.objects.count(), 1)
-        self.assertEqual(self.user.email, 'testuser@example.com')
+        self.assertEqual(self.user.phone_number, '+989123456789')
         self.assertTrue(self.user.check_password('password123'))
 
-    def test_create_user_without_email(self):
+    def test_create_user_without_phone_number(self):
         with self.assertRaises(ValueError):
-            User.objects.create_user(email=None, password='password123')
+            User.objects.create_user(phone_number=None, password='password123')
 
     def test_create_superuser(self):
         superuser = User.objects.create_superuser(
@@ -44,7 +43,7 @@ class UserModelTest(TestCase):
     def test_create_superuser_without_staff(self):
         with self.assertRaises(ValueError):
             User.objects.create_superuser(
-                email='superuser2@example.com',
+                phone_number='+989123456787',
                 password='password123',
                 is_staff=False
             )
@@ -52,7 +51,7 @@ class UserModelTest(TestCase):
     def test_create_superuser_without_superuser(self):
         with self.assertRaises(ValueError):
             User.objects.create_superuser(
-                email='superuser3@example.com',
+                phone_number='+989123456786',
                 password='password123',
                 is_superuser=False
             )
@@ -78,7 +77,7 @@ class ProfileModelTest(TestCase):
 
     def setUp(self):
         self.user = User.objects.create_user(
-            email='testuser@example.com',
+            phone_number='+989123456785',
             username='testuser',
             password='password123'
         )
@@ -96,7 +95,7 @@ class AddressModelTest(TestCase):
 
     def setUp(self):
         self.user = User.objects.create_user(
-            email='testuser@example.com',
+            phone_number='+989123456784',
             username='testuser',
             password='password123'
         )

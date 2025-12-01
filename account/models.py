@@ -44,16 +44,20 @@ class Profile(models.Model):
 
 # Custom User Manager
 class UserManager(BaseUserManager):
-    def create_user(self, email, password=None, **extra_fields):
-        if not email:
-            raise ValueError(_('The Email field must be set'))
-        email = self.normalize_email(email)
-        user = self.model(email=email, **extra_fields)
+    def create_user(self, phone_number, password=None, **extra_fields):
+        if not phone_number:
+            raise ValueError(_('The Phone number must be set'))
+
+        # Normalize the email address if it is provided
+        if 'email' in extra_fields and extra_fields['email']:
+            extra_fields['email'] = self.normalize_email(extra_fields['email'])
+
+        user = self.model(phone_number=phone_number, **extra_fields)
         user.set_password(password)
         user.save(using=self._db)
         return user
 
-    def create_superuser(self, email, password=None, **extra_fields):
+    def create_superuser(self, phone_number, password=None, **extra_fields):
         extra_fields.setdefault('is_staff', True)
         extra_fields.setdefault('is_superuser', True)
         extra_fields.setdefault('is_active', True)
@@ -63,12 +67,12 @@ class UserManager(BaseUserManager):
         if extra_fields.get('is_superuser') is not True:
             raise ValueError(_('Superuser must have is_superuser=True.'))
 
-        return self.create_user(email, password, **extra_fields)
+        return self.create_user(phone_number, password, **extra_fields)
 
 
 # Custom User Model
 class UserAccount(AbstractUser, PermissionsMixin):
-    email = models.EmailField(_('email address'), unique=True)
+    email = models.EmailField(_('email address'), unique=False, null=True, blank=True)
     username = models.CharField(_('username'), max_length=30, unique=True, blank=False,
                                 help_text="User's unique username",
                                 validators=[
@@ -79,7 +83,7 @@ class UserAccount(AbstractUser, PermissionsMixin):
                                     )
                                 ]
                                 )
-    phone_number = models.CharField(_('phone number'), max_length=15, unique=True, null=True, blank=True,
+    phone_number = models.CharField(_('phone number'), max_length=15, unique=True,
                                     validators=[
                                         RegexValidator(
                                             regex=r'^\+?1?\d{9,15}$',
@@ -100,11 +104,12 @@ class UserAccount(AbstractUser, PermissionsMixin):
     is_staff = models.BooleanField(_('staff status'), default=False)
     is_manager = models.BooleanField(_('manager status'), default=False)
     is_admin = models.BooleanField(_('admin status'), default=False)
+    is_profile_complete = models.BooleanField(default=False)
 
     objects = UserManager()
 
-    USERNAME_FIELD = 'email'
-    REQUIRED_FIELDS = ['username', 'phone_number', 'first_name', 'last_name']
+    USERNAME_FIELD = 'phone_number'
+    REQUIRED_FIELDS = ['username', 'first_name', 'last_name']
 
     @property
     def name(self):

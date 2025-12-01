@@ -12,11 +12,13 @@ from ecommerce_api.asgi import application
 class MessageModelTest(TestCase):
     def setUp(self):
         self.sender = get_user_model().objects.create_user(
+            phone_number='+989123456720',
             username='sender',
             email='sender@example.com',
             password='password'
         )
         self.recipient = get_user_model().objects.create_user(
+            phone_number='+989123456721',
             username='recipient',
             email='recipient@example.com',
             password='password'
@@ -52,8 +54,8 @@ class MessageModelTest(TestCase):
 
 class ProductChatAPIViewTest(TestCase):
     def setUp(self):
-        self.user1 = get_user_model().objects.create_user(username='user1', email='user1@test.com', password='password')
-        self.user2 = get_user_model().objects.create_user(username='user2', email='user2@test.com', password='password')
+        self.user1 = get_user_model().objects.create_user(phone_number='+989123456722', username='user1', email='user1@test.com', password='password')
+        self.user2 = get_user_model().objects.create_user(phone_number='+989123456723', username='user2', email='user2@test.com', password='password')
         self.category = Category.objects.create(name='Test Category')
         self.product = Product.objects.create(
             name='Test Product',
@@ -107,6 +109,7 @@ class ProductChatAPIViewTest(TestCase):
     def test_unauthorized_user_cannot_access_chat(self):
         # Create a third user who is not part of the conversation
         unauthorized_user = get_user_model().objects.create_user(
+            phone_number='+989123456724',
             username='unauthorized',
             email='unauthorized@test.com',
             password='password'
@@ -122,8 +125,8 @@ class ProductChatAPIViewTest(TestCase):
 class ChatConsumerTest(TestCase):
     async def asyncSetUp(self):
         User = get_user_model()
-        self.user1 = await sync_to_async(User.objects.create_user)(username='user1', email='user1@test.com', password='password')
-        self.user2 = await sync_to_async(User.objects.create_user)(username='user2', email='user2@test.com', password='password')
+        self.user1 = await sync_to_async(User.objects.create_user)(phone_number='+989123456725', username='user1', email='user1@test.com', password='password')
+        self.user2 = await sync_to_async(User.objects.create_user)(phone_number='+989123456726', username='user2', email='user2@test.com', password='password')
         self.category = await Category.objects.acreate(name='Test Category')
         self.product = await Product.objects.acreate(
             name='Test Product',

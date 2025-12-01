@@ -68,6 +68,7 @@ class ShippingProviderTests(TestCase):
 class ShippingAPIViewTests(APITestCase):
     def setUp(self):
         self.user = User.objects.create_user(
+            phone_number='+989123456712',
             email='test@example.com',
             username='testuser',
             password='password'

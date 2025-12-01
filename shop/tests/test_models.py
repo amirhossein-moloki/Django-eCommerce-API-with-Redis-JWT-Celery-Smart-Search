@@ -12,7 +12,7 @@ User = get_user_model()
 
 class CategoryModelTest(TestCase):
     def setUp(self):
-        self.user = User.objects.create_user(username='testuser', email='test@example.com', password='password')
+        self.user = User.objects.create_user(phone_number='+989123456700', username='testuser', email='test@example.com', password='password')
 
     def test_category_creation(self):
         category = Category.objects.create(name='Test Category')
@@ -30,7 +30,7 @@ class CategoryModelTest(TestCase):
 
 class ProductModelTest(TestCase):
     def setUp(self):
-        self.user = User.objects.create_user(username='testuser', email='test@example.com', password='password')
+        self.user = User.objects.create_user(phone_number='+989123456701', username='testuser', email='test@example.com', password='password')
         self.category = Category.objects.create(name='Test Category')
 
     def test_product_creation(self):
@@ -70,8 +70,8 @@ class ProductModelTest(TestCase):
 
 class ReviewModelTest(TestCase):
     def setUp(self):
-        self.user1 = User.objects.create_user(username='user1', email='user1@example.com', password='password')
-        self.user2 = User.objects.create_user(username='user2', email='user2@example.com', password='password')
+        self.user1 = User.objects.create_user(phone_number='+989123456702', username='user1', email='user1@example.com', password='password')
+        self.user2 = User.objects.create_user(phone_number='+989123456703', username='user2', email='user2@example.com', password='password')
         self.category = Category.objects.create(name='Test Category')
         self.product = Product.objects.create(
             name='Test Product',
@@ -124,6 +124,7 @@ class ReviewModelTest(TestCase):
 class ShopServiceTests(TestCase):
     def setUp(self):
         self.user = User.objects.create_user(
+            phone_number='+989123456704',
             email='test@example.com',
             username='testuser',
             password='password'

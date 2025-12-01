@@ -11,7 +11,7 @@ class UserProfileSerializerTest(TestCase):
 
     def setUp(self):
         self.user = User.objects.create_user(
-            email='testuser@example.com',
+            phone_number='+989123456788',
             username='testuser',
             password='password123'
         )
@@ -62,11 +62,47 @@ class UserProfileSerializerTest(TestCase):
         self.assertIn('phone_number', serializer.errors)
 
 
+from account.serializers import UserProfileSerializer, AddressSerializer, CompleteProfileSerializer
+
+class CompleteProfileSerializerTest(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(
+            phone_number='+989123456789',
+            username='testuser',
+            password='password123',
+            is_active=False,
+            is_profile_complete=False
+        )
+
+    def test_complete_profile_serializer_valid_data(self):
+        data = {
+            'first_name': 'Test',
+            'last_name': 'User',
+            'email': 'test@example.com'
+        }
+        serializer = CompleteProfileSerializer(instance=self.user, data=data)
+        self.assertTrue(serializer.is_valid(raise_exception=True))
+
+    def test_complete_profile_serializer_update(self):
+        data = {
+            'first_name': 'Test',
+            'last_name': 'User',
+        }
+        serializer = CompleteProfileSerializer(instance=self.user, data=data)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        self.user.refresh_from_db()
+
+        self.assertTrue(self.user.is_profile_complete)
+        self.assertTrue(self.user.is_active)
+        self.assertEqual(self.user.first_name, 'Test')
+
+
 class AddressSerializerTest(TestCase):
 
     def setUp(self):
         self.user = User.objects.create_user(
-            email='testuser@example.com',
+            phone_number='+989123456789',
             username='testuser',
             password='password123'
         )

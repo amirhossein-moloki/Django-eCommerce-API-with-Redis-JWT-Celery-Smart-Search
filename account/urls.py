@@ -3,46 +3,19 @@ from django.urls import path
 # Import views for user management and authentication
 from .views import (
     UserViewSet,
-    TokenObtainPairView,
     TokenRefreshView,
     TokenVerifyView,
     TokenDestroyView, ActivateView,
     RequestOTP,
     VerifyOTP,
+    CompleteProfileView,
 )
 
 # Application namespace to avoid conflicts
 app_name = 'auth'
 
-# Define actions for UserViewSet
-user_create = UserViewSet.as_view({'post': 'create'})
-user_activate = UserViewSet.as_view({'post': 'activation'})
-user_set_password = UserViewSet.as_view({'post': 'set_password'})
-user_reset_password = UserViewSet.as_view({'post': 'reset_password'})
-user_reset_password_confirm = UserViewSet.as_view({'post': 'reset_password_confirm'})
-
 urlpatterns = [
-    # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ AUTHENTICATION URLS ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    # User registration
-    path('register/', user_create, name='register'),
-
-    # User activation
-    path('activate/', user_activate, name='activate'),
-    path('activate/<str:uid>/<str:token>/', ActivateView.as_view(), name='activate-form'),
-
-    # Set password
-    path('set-password/', user_set_password, name='set_password'),
-
-    # Reset password
-    path('reset-password/', UserViewSet.as_view({'post': 'reset_password'}), name='reset_password'),
-
-    # Confirm password reset
-    path('reset-password-confirm/', user_reset_password_confirm, name='reset_password_confirm'),
-
     # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ USER Authentication URLS ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    # Obtain a new JWT token
-    path('token/create/', TokenObtainPairView.as_view(), name='jwt-create'),
-
     # Refresh an existing JWT token
     path('token/refresh/', TokenRefreshView.as_view(), name='jwt-refresh'),
 
@@ -63,5 +36,6 @@ urlpatterns = [
     # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ OTP AUTHENTICATION URLS ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     path('request-otp/', RequestOTP.as_view(), name='request-otp'),
     path('verify-otp/', VerifyOTP.as_view(), name='verify-otp'),
+    path('complete-profile/', CompleteProfileView.as_view(), name='complete-profile'),
 ]
 

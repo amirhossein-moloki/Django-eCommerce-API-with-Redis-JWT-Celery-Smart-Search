@@ -18,6 +18,7 @@ class CartClassTests(TestCase):
     def setUp(self):
         self.factory = RequestFactory()
         self.user = User.objects.create_user(
+            phone_number='+989123456710',
             email='testuser@example.com',
             username='testuser',
             password='password'
@@ -131,6 +132,7 @@ class CartClassTests(TestCase):
 class CartViewSetTests(APITestCase):
     def setUp(self):
         self.user = User.objects.create_user(
+            phone_number='+989123456711',
             email='testuser@example.com',
             username='testuser',
             password='password'

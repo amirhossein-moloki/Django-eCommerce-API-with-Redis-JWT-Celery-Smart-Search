@@ -18,7 +18,7 @@ class UserViewSetTests(APITestCase):
 
     def setUp(self):
         self.user = User.objects.create_user(
-            email='testuser@example.com',
+            phone_number='+989123456789',
             username='testuser',
             password='S@mpleP@ss123',
             is_active=True
@@ -69,136 +69,90 @@ class UserViewSetTests(APITestCase):
         self.assertTrue(response.data['is_staff'])
 
 
-class AuthenticationTests(APITestCase):
-
-    def setUp(self):
-        self.user = User.objects.create_user(
-            email='test@example.com',
-            username='testuser',
-            password='S@mpleP@ss123',
-            is_active=False
-        )
-        self.uid = encode_uid(self.user.pk)
-        self.token = default_token_generator.make_token(self.user)
-
-    def test_user_registration(self):
-        url = reverse('auth:register')
-        data = {
-            'email': 'newuser@example.com',
-            'username': 'newuser',
-            'password': 'S@mpleP@ss123',
-            're_password': 'S@mpleP@ss123'
-        }
-        response = self.client.post(url, data)
-        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        self.assertTrue(User.objects.filter(email='newuser@example.com').exists())
-
-    def test_user_activation(self):
-        url = reverse('auth:activate')
-        data = {'uid': self.uid, 'token': self.token}
-        response = self.client.post(url, data)
-        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
-        self.user.refresh_from_db()
-        self.assertTrue(self.user.is_active)
-
-    def test_set_password(self):
-        self.client.force_authenticate(user=self.user)
-        url = reverse('auth:set_password')
-        data = {
-            'new_password': 'NewS@mpleP@ss123',
-            'current_password': 'S@mpleP@ss123'
-        }
-        response = self.client.post(url, data)
-        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
-        self.user.refresh_from_db()
-        self.assertTrue(self.user.check_password('NewS@mpleP@ss123'))
-
-    def test_reset_password(self):
-        self.user.is_active = True
-        self.user.save()
-        url = reverse('auth:reset_password')
-        data = {'email': self.user.email}
-        response = self.client.post(url, data)
-        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
-
-    def test_reset_password_confirm(self):
-        url = reverse('auth:reset_password_confirm')
-        data = {
-            'uid': self.uid,
-            'token': self.token,
-            'new_password': 'NewPassword123'
-        }
-        response = self.client.post(url, data)
-        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
-
-    def test_token_obtain(self):
-        self.user.is_active = True
-        self.user.save()
-        url = reverse('auth:jwt-create')
-        data = {'email': self.user.email, 'password': 'S@mpleP@ss123'}
-        response = self.client.post(url, data)
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertIn('access', response.data['data'])
-        self.assertIn('refresh', response.data['data'])
-
-    def test_token_refresh(self):
-        self.user.is_active = True
-        self.user.save()
-        refresh = RefreshToken.for_user(self.user)
-        url = reverse('auth:jwt-refresh')
-        data = {'refresh': str(refresh)}
-        response = self.client.post(url, data)
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertIn('access', response.data['data'])
-
-    def test_token_verify(self):
-        self.user.is_active = True
-        self.user.save()
-        refresh = RefreshToken.for_user(self.user)
-        url = reverse('auth:jwt-verify')
-        data = {'token': str(refresh.access_token)}
-        response = self.client.post(url, data)
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-
-    def test_token_destroy(self):
-        self.user.is_active = True
-        self.user.save()
-        refresh = RefreshToken.for_user(self.user)
-        url = reverse('auth:jwt-destroy')
-        data = {'refresh': str(refresh)}
-        response = self.client.post(url, data)
-        self.assertEqual(response.status_code, status.HTTP_205_RESET_CONTENT)
 
 
-class ActivateViewTest(APITestCase):
-    def test_activate_view(self):
-        url = reverse('auth:activate-form', kwargs={'uid': 'test_uid', 'token': 'test_token'})
-        response = self.client.get(url)
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertTemplateUsed(response, 'account/activate.html')
 
 
 class OTPTests(APITestCase):
 
     @patch('sms.providers.SmsIrProvider.send_otp')
-    def test_request_otp(self, mock_send_otp):
+    def test_request_otp_success(self, mock_send_otp):
         mock_send_otp.return_value = {'status': 1}
         url = reverse('auth:request-otp')
         data = {'phone': '+989123456789'}
         response = self.client.post(url, data)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertTrue(OTPCode.objects.filter(phone='+989123456789').exists())
+        self.assertTrue(OTPCode.objects.filter(phone='+989123456789', is_active=True).exists())
 
-    def test_verify_otp(self):
-        expires_at = timezone.now() + timedelta(minutes=5)
-        otp = OTPCode.objects.create(phone='+989123456789', code='123456', expires_at=expires_at)
+    def test_verify_otp_new_user(self):
+        expires_at = timezone.now() + timedelta(minutes=2)
+        OTPCode.objects.create(phone='+989123456789', code='123456', expires_at=expires_at)
         url = reverse('auth:verify-otp')
         data = {'phone': '+989123456789', 'code': '123456'}
         response = self.client.post(url, data)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertIn('access', response.data)
-        self.assertIn('refresh', response.data)
+        self.assertFalse(response.data['is_profile_complete'])
         user = User.objects.get(phone_number='+989123456789')
-        self.assertIsNotNone(user)
-        otp.refresh_from_db()
-        self.assertTrue(otp.used)
+        self.assertFalse(user.is_profile_complete)
+        self.assertFalse(user.is_active)
+
+    def test_verify_otp_existing_user(self):
+        user = User.objects.create_user(phone_number='+989123456789', username='test', is_profile_complete=True)
+        expires_at = timezone.now() + timedelta(minutes=2)
+        OTPCode.objects.create(phone='+989123456789', code='123456', expires_at=expires_at)
+        url = reverse('auth:verify-otp')
+        data = {'phone': '+989123456789', 'code': '123456'}
+        response = self.client.post(url, data)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertTrue(response.data['is_profile_complete'])
+
+    def test_verify_otp_invalid_code(self):
+        expires_at = timezone.now() + timedelta(minutes=2)
+        OTPCode.objects.create(phone='+989123456789', code='123456', expires_at=expires_at)
+        url = reverse('auth:verify-otp')
+        data = {'phone': '+989123456789', 'code': '654321'}
+        response = self.client.post(url, data)
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_verify_otp_expired_code(self):
+        expires_at = timezone.now() - timedelta(minutes=1)
+        OTPCode.objects.create(phone='+989123456789', code='123456', expires_at=expires_at)
+        url = reverse('auth:verify-otp')
+        data = {'phone': '+989123456789', 'code': '123456'}
+        response = self.client.post(url, data)
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+
+class CompleteProfileViewTests(APITestCase):
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            phone_number='+989123456789',
+            username='testuser',
+            password='S@mpleP@ss123',
+            is_active=False,
+            is_profile_complete=False
+        )
+        self.client.force_authenticate(user=self.user)
+        self.url = reverse('auth:complete-profile')
+
+    def test_complete_profile_success(self):
+        data = {
+            'first_name': 'Test',
+            'last_name': 'User',
+            'email': 'test@example.com'
+        }
+        response = self.client.patch(self.url, data)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.user.refresh_from_db()
+        self.assertTrue(self.user.is_profile_complete)
+        self.assertTrue(self.user.is_active)
+        self.assertEqual(self.user.first_name, 'Test')
+
+    def test_complete_profile_already_complete(self):
+        self.user.is_profile_complete = True
+        self.user.save()
+        data = {'first_name': 'Another Name'}
+        response = self.client.patch(self.url, data)
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)

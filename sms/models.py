@@ -8,6 +8,8 @@ class OTPCode(models.Model):
     code = models.CharField(max_length=6)
     expires_at = models.DateTimeField()
     used = models.BooleanField(default=False)
+    failed_attempts = models.PositiveSmallIntegerField(default=0)
+    is_active = models.BooleanField(default=True)
 
     def is_expired(self):
         return self.expires_at < timezone.now()

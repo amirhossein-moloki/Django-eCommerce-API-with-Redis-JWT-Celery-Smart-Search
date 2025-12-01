@@ -106,3 +106,25 @@ class AddressSerializer(serializers.ModelSerializer):
     class Meta:
         model = Address
         fields = ['id', 'province', 'city', 'city_code', 'postal_code', 'full_address', 'receiver_name', 'receiver_phone']
+
+
+class CompleteProfileSerializer(serializers.ModelSerializer):
+    email = serializers.EmailField(required=False, allow_blank=True)
+
+    class Meta:
+        model = User
+        fields = ('first_name', 'last_name', 'email')
+
+    def validate_email(self, value):
+        if User.objects.filter(email=value).exists():
+            raise serializers.ValidationError("A user with that email already exists.")
+        return value
+
+    def update(self, instance, validated_data):
+        instance.first_name = validated_data.get('first_name', instance.first_name)
+        instance.last_name = validated_data.get('last_name', instance.last_name)
+        instance.email = validated_data.get('email', instance.email)
+        instance.is_profile_complete = True
+        instance.is_active = True
+        instance.save()
+        return instance

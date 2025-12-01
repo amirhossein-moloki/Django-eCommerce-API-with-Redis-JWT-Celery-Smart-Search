@@ -13,6 +13,7 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework.permissions import IsAuthenticated
 from rest_framework_simplejwt.views import (
     TokenBlacklistView,
     TokenObtainPairView as BaseTokenObtainPairView,
@@ -24,7 +25,8 @@ from sms.models import OTPCode
 from sms.providers import SmsIrProvider
 
 from .models import Profile, UserAccount
-from .serializers import RefreshTokenSerializer, UserProfileSerializer
+from .permissions import IsProfileIncomplete
+from .serializers import CompleteProfileSerializer, RefreshTokenSerializer, UserProfileSerializer
 
 logger = getLogger(__name__)
 
@@ -126,114 +128,19 @@ class UserViewSet(BaseUserViewSet):
         }
     )
     def create(self, request, *args, **kwargs):
-        """
-        Handle POST requests to create a new user account.
-        """
-        try:
-            response = super().create(request, *args, **kwargs)
-            return Response({
-                "message": "User successfully registered. Please check your email to activate your account.",
-                "data": response.data
-            }, status=response.status_code)
-        except Exception as e:
-            logger.error(f"Error during user registration: {e}", exc_info=True)
-            raise
+        return Response(status=status.HTTP_404_NOT_FOUND)
 
-    @extend_schema(
-        operation_id="user_activate",
-        description="Activate a user account using the activation key.",
-        tags=["User Authentication"],
-        methods=['POST'],
-        responses={
-            200: OpenApiResponse(description="Account successfully activated."),
-            400: OpenApiResponse(description="Invalid activation key."),
-        }
-    )
     def activation(self, request, *args, **kwargs):
-        """
-        Activate a user account using the activation key.
-        """
-        try:
-            response = super().activation(request, *args, **kwargs)
-            return Response({
-                "message": "Account successfully activated",
-                "data": response.data
-            }, status=response.status_code)
-        except Exception as e:
-            logger.error(f"Error during account activation: {e}", exc_info=True)
-            raise
+        return Response(status=status.HTTP_404_NOT_FOUND)
 
-    @extend_schema(
-        operation_id="user_set_password",
-        description="Set a new password for the authenticated user.",
-        tags=["User Management"],
-        methods=['POST'],
-        responses={
-            200: OpenApiResponse(description="Password successfully updated."),
-            400: OpenApiResponse(description="Invalid password input."),
-        }
-    )
     def set_password(self, request, *args, **kwargs):
-        """
-        Set a new password for the authenticated user.
-        """
-        try:
-            response = super().set_password(request, *args, **kwargs)
-            return Response({
-                "message": "Password successfully updated",
-                "data": response.data
-            }, status=response.status_code)
-        except Exception as e:
-            logger.error(f"Error during password update: {e}", exc_info=True)
-            raise
+        return Response(status=status.HTTP_404_NOT_FOUND)
 
-    @extend_schema(
-        operation_id="user_reset_password",
-        description="Initiate a password reset request.",
-        tags=["User Management"],
-        methods=['POST'],
-        responses={
-            200: OpenApiResponse(description="Password reset email sent."),
-            400: OpenApiResponse(description="Invalid email address."),
-        }
-    )
     def reset_password(self, request, *args, **kwargs):
-        """
-        Initiate a password reset request.
-        """
-        try:
-            response = super().reset_password(request, *args, **kwargs)
-            return Response({
-                "message": "Password reset email sent",
-                "data": response.data
-            }, status=response.status_code)
-        except Exception as e:
-            logger.error(f"Error during password reset request: {e}", exc_info=True)
-            raise
+        return Response(status=status.HTTP_404_NOT_FOUND)
 
-    @extend_schema(
-        operation_id="user_reset_password_confirm",
-        description="Confirm a password reset using the token and new password.",
-        tags=["User Management"],
-        methods=['POST'],
-        responses={
-            200: OpenApiResponse(description="Password successfully reset."),
-            400: OpenApiResponse(description="Invalid token or password."),
-        }
-    )
     def reset_password_confirm(self, request, *args, **kwargs):
-        """
-        Confirm a password reset using the token and new password.
-        """
-        try:
-            response = super().reset_password_confirm(request, *args, **kwargs)
-            return Response({
-                "message": "Password successfully reset",
-                "data": response.data
-            }, status=response.status_code)
-        except Exception as e:
-            logger.error(f"Error during password reset confirmation: {e}", exc_info=True)
-            raise
+        return Response(status=status.HTTP_404_NOT_FOUND)
 
     @extend_schema(
         operation_id="user_staff_check",
@@ -260,32 +167,6 @@ class UserViewSet(BaseUserViewSet):
             return Response({
                 "error": "Unable to check staff status"
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-
-class TokenObtainPairView(BaseTokenObtainPairView):
-    """
-    Handle POST requests to obtain a new pair of access and refresh tokens.
-    """
-
-    @extend_schema(
-        operation_id="token_obtain",
-        description="Obtain a new pair of access and refresh tokens.",
-        tags=["User Authentication"],
-        responses={
-            200: OpenApiResponse(description="Token successfully obtained."),
-            400: OpenApiResponse(description="Invalid credentials."),
-        }
-    )
-    def post(self, request, *args, **kwargs):
-        try:
-            response = super().post(request, *args, **kwargs)
-            return Response({
-                "message": "Token successfully obtained",
-                "data": response.data
-            }, status=response.status_code)
-        except Exception as e:
-            logger.error(f"Error during token obtain: {e}", exc_info=True)
-            raise
 
 
 class TokenRefreshView(BaseTokenRefreshView):
@@ -393,8 +274,11 @@ class RequestOTP(APIView):
         if not phone:
             return Response({'error': 'Phone number is required'}, status=status.HTTP_400_BAD_REQUEST)
 
+        # Invalidate previous OTPs
+        OTPCode.objects.filter(phone=phone, is_active=True).update(is_active=False)
+
         otp_code = generate_otp()
-        expires_at = timezone.now() + timedelta(minutes=5)
+        expires_at = timezone.now() + timedelta(minutes=2)
 
         otp = OTPCode.objects.create(phone=phone, code=otp_code, expires_at=expires_at)
 
@@ -412,36 +296,62 @@ class VerifyOTP(APIView):
     def post(self, request):
         phone = request.data.get('phone')
         code = request.data.get('code')
+        MAX_FAILED_ATTEMPTS = 5
 
         if not phone or not code:
             return Response({'error': 'Phone and code are required'}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
-            otp = OTPCode.objects.get(phone=phone, code=code, used=False)
+            otp = OTPCode.objects.get(phone=phone, code=code, used=False, is_active=True)
         except OTPCode.DoesNotExist:
+            # Increment failed attempts for all active OTPs for this number
+            active_otps = OTPCode.objects.filter(phone=phone, used=False, is_active=True)
+            for active_otp in active_otps:
+                active_otp.failed_attempts += 1
+                if active_otp.failed_attempts >= MAX_FAILED_ATTEMPTS:
+                    active_otp.is_active = False
+                active_otp.save()
             return Response({'error': 'Invalid OTP'}, status=status.HTTP_400_BAD_REQUEST)
 
         if otp.is_expired():
+            otp.is_active = False
+            otp.save()
             return Response({'error': 'OTP has expired'}, status=status.HTTP_400_BAD_REQUEST)
 
+        if not otp.is_active:
+            return Response({'error': 'OTP is not active'}, status=status.HTTP_400_BAD_REQUEST)
+
         otp.used = True
+        otp.is_active = False
         otp.save()
 
         try:
             user = UserAccount.objects.get(phone_number=phone)
         except UserAccount.DoesNotExist:
-            # Create a new user with a dummy email if they don't exist
+            # Create a new user with profile incomplete and inactive
             user = UserAccount.objects.create_user(
-                email=f'{phone}@example.com',
                 phone_number=phone,
                 password=None,
                 username=phone,
+                is_active=False,
+                is_profile_complete=False,
             )
-            user.is_active = True
-            user.save()
 
         refresh = RefreshToken.for_user(user)
         return Response({
             'refresh': str(refresh),
             'access': str(refresh.access_token),
+            'is_profile_complete': user.is_profile_complete
         })
+
+
+class CompleteProfileView(APIView):
+    permission_classes = [IsAuthenticated, IsProfileIncomplete]
+    serializer_class = CompleteProfileSerializer
+
+    def patch(self, request, *args, **kwargs):
+        serializer = self.serializer_class(request.user, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response({'message': 'Profile completed successfully.'}, status=status.HTTP_200_OK)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
