@@ -355,3 +355,27 @@ class CompleteProfileView(APIView):
             serializer.save()
             return Response({'message': 'Profile completed successfully.'}, status=status.HTTP_200_OK)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class ObtainTestToken(APIView):
+    """
+    A view for obtaining a JWT token for a test user.
+    This view is only active when DEBUG is True.
+    """
+    def post(self, request, *args, **kwargs):
+        if not settings.DEBUG:
+            return Response(status=status.HTTP_404_NOT_FOUND)
+
+        phone_number = request.data.get('phone_number')
+        if not phone_number:
+            return Response({'error': 'Phone number is required'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            user = UserAccount.objects.get(phone_number=phone_number)
+            refresh = RefreshToken.for_user(user)
+            return Response({
+                'refresh': str(refresh),
+                'access': str(refresh.access_token),
+            })
+        except UserAccount.DoesNotExist:
+            return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)

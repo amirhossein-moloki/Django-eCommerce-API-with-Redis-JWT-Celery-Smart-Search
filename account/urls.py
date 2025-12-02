@@ -9,6 +9,7 @@ from .views import (
     RequestOTP,
     VerifyOTP,
     CompleteProfileView,
+    ObtainTestToken,
 )
 
 # Application namespace to avoid conflicts
@@ -39,3 +40,9 @@ urlpatterns = [
     path('complete-profile/', CompleteProfileView.as_view(), name='complete-profile'),
 ]
 
+from django.conf import settings
+
+if settings.DEBUG:
+    urlpatterns += [
+        path('token/test/', ObtainTestToken.as_view(), name='test-token'),
+    ]
