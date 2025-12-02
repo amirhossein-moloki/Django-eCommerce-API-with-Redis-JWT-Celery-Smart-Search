@@ -15,24 +15,6 @@ env.read_env(str(BASE_DIR / '.env'))
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
-# SECURITY WARNING: keep the secret key used in production secret!
-if 'test' in sys.argv:
-    SECRET_KEY = 'dummy-secret-key-for-testing'
-else:
-    SECRET_KEY = env('SECRET_KEY')
-
-# SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = env.bool("DEBUG", default=False)
-
-ALLOWED_HOSTS = env.list("ALLOWED_HOSTS", default=[])
-
-# CSRF_TRUSTED_ORIGINS = [
-#     'http://localhost:3000'
-# ]
-CORS_ALLOWED_ORIGINS = [
-    "http://localhost:3000",
-]
-
 CORS_ALLOW_CREDENTIALS = True
 CORS_ALLOW_HEADERS = [
     'accept',
@@ -137,16 +119,6 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'ecommerce_api.wsgi.application'
 
-# Database
-# https://docs.djangoproject.com/en/5.2/ref/settings/#databases
-#      ╭──────────────────────────────────────────────────────────╮
-#      │                  Database Configuration                  │
-#      ╰──────────────────────────────────────────────────────────╯
-# ──────── This Section Configures The Database Connection For The Application ─────────
-DATABASES = {
-    'default': env.db(),
-}
-
 # Password validation
 # https://docs.djangoproject.com/en/5.2/ref/settings/#auth-password-validators
 
@@ -182,11 +154,6 @@ USE_TZ = True
 STATIC_URL = 'static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 
-# Additional locations of static files
-# STATICFILES_DIRS = [
-#     BASE_DIR / 'static',
-# ]
-
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
@@ -195,10 +162,7 @@ AUTH_USER_MODEL = 'account.UserAccount'
 MEDIA_URL = 'media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 
-#      ╭──────────────────────────────────────────────────────────╮
-#      │                 Framework Configuration                  │
-#      ╰──────────────────────────────────────────────────────────╯
-# ────────────── Settings For Authentication, Pagination, And Throttling ───────────────
+# Framework Configuration
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
         'rest_framework_simplejwt.authentication.JWTAuthentication',
@@ -227,125 +191,31 @@ REST_FRAMEWORK = {
     ],
 }
 
-#      ╭──────────────────────────────────────────────────────────╮
-#      │       Configuration for JWT Authentication Tokens        │
-#      ╰──────────────────────────────────────────────────────────╯
-# ━━ THIS SECTION SETS THE DURATION FOR BOTH ACCESS AND REFRESH TOKENS IN THE APPLICATION, USING THE SIMPLE_JWT SETTINGS. ━━
+# JWT Authentication Tokens
 SIMPLE_JWT = {
-    # Sets the lifespan of the access token.
-    # After 15 minutes, the access token will expire, requiring the user to use the refresh token to obtain a new access token.
     'ACCESS_TOKEN_LIFETIME': timedelta(days=15),
-
-    # Sets the lifespan of the refresh token.
-    # After 7 days, the refresh token will expire, requiring the user to re-authenticate to get a new refresh token.
     'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
-
-    # Defines the class used for authentication tokens, specifying AccessToken here
-    # as the type of token used by Simple JWT.
     'AUTH_TOKEN_CLASSES': ('rest_framework_simplejwt.tokens.AccessToken',),
-
     "ROTATE_REFRESH_TOKENS": True,
     "BLACKLIST_AFTER_ROTATION": True,
 }
 
-#      ╭──────────────────────────────────────────────────────────╮
-#      │                API Documentation Settings                │
-#      ╰──────────────────────────────────────────────────────────╯
-# ─────────────── Configure Openapi Schema For A Scalable Ecommerce Api ────────────────
+# API Documentation Settings
 SPECTACULAR_SETTINGS = {
     "TITLE": "Hypex eCommerce API Documentation",
     "DESCRIPTION": "A scalable RESTful eCommerce API using Django, JWT auth, Redis caching, Celery for task scheduling, advanced search, tagging, and personalized results.",
     "VERSION": "1.2.6",
-    "SERVE_INCLUDE_SCHEMA": True,  # Enables schema serving at runtime
-    "SCHEMA_PATH_PREFIX": "/api/v1",  # Filter paths for the documented schema
-
-    # Enforce strict validation and clean documentation
-    "SORT_OPERATIONS": True,  # Sort operations alphabetically by path and method
-    "SORT_SCHEMA_BY_TAGS": True,  # Sort schema tags alphabetically
-    "ENUM_NAME_OVERRIDES": {},  # Customize enum names if needed
-    "COMPONENT_SPLIT_REQUEST": False,  # Avoid splitting components for requests and responses unnecessarily
-
-    # Ensure compatibility with DELETE methods accepting body payloads
+    "SERVE_INCLUDE_SCHEMA": True,
+    "SCHEMA_PATH_PREFIX": "/api/v1",
+    "SORT_OPERATIONS": True,
+    "SORT_SCHEMA_BY_TAGS": True,
+    "ENUM_NAME_OVERRIDES": {},
+    "COMPONENT_SPLIT_REQUEST": False,
     "ENABLE_DELETE_METHODS_WITH_BODY": True,
-    # "ENABLE_DELETE_METHODS_WITH_BODY": False,
-
-    # Tags and grouping
-    "TAGS": [
-        {
-            "name": "User Management",
-            "description": "Endpoints for managing user profiles, accounts, and related data."
-        },
-        {
-            "name": "User Authentication",
-            "description": "Endpoints for user login, logout, and authentication."
-        },
-        {
-            "name": "Payments",
-            "description": "Endpoints for processing and managing payments."
-        },
-        {
-            "name": "Orders",
-            "description": "Endpoints for managing customer orders and order details."
-        },
-        {
-            "name": "Coupons",
-            "description": "Endpoints for creating and managing discount coupons."
-        },
-        {
-            "name": "Categories",
-            "description": "Endpoints for managing product categories."
-        },
-        {
-            "name": "Chat",
-            "description": "Endpoints for real-time communication and chat functionality."
-        },
-        {
-            "name": "Cart",
-            "description": "Endpoints for managing the shopping cart."
-        },
-        {
-            "name": "Reviews",
-            "description": "Endpoints for managing product reviews."
-        }
-    ],
-    # Authentication configuration
-    "SECURITY": [
-        {"bearerAuth": []},  # Assuming you're using Bearer/Token-based authentication
-    ],
-
-    # Deprecation warnings
-    "APPEND_PATH_TO_TAGS": False,  # Do not append path to tags; keeps tags clean
-    "SCHEMA_EXTENSIONS": [],  # Add custom schema extensions if needed
-}
-
-#      ╭──────────────────────────────────────────────────────────╮
-#      │                 Configure Redis Caching                  │
-#      ╰──────────────────────────────────────────────────────────╯
-# ──────────────── Set Up Redis As The Default Cache Backend For Django ────────────────
-if 'test' in sys.argv:
-    CACHES = {
-        'default': {
-            'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
-            'LOCATION': 'unique-snowflake',
-        }
-    }
-else:
-    REDIS_URL = env('REDIS_URL')
-    CACHES = {
-        "default": env.cache('REDIS_URL')
-    }
-
-#      ╭──────────────────────────────────────────────────────────╮
-#      │           Configure Redis for Django Channels            │
-#      ╰──────────────────────────────────────────────────────────╯
-#  Configure Django Channels With Redis For Real-time Communication And Asynchronous Task Handling
-CHANNEL_LAYERS = {
-    'default': {
-        'BACKEND': 'channels_redis.core.RedisChannelLayer',
-        'CONFIG': {
-            'hosts': [env('REDIS_URL')],
-        },
-    },
+    "TAGS": [],
+    "SECURITY": [{"bearerAuth": []}],
+    "APPEND_PATH_TO_TAGS": False,
+    "SCHEMA_EXTENSIONS": [],
 }
 
 # Django Debug Toolbar settings
@@ -355,16 +225,7 @@ INTERNAL_IPS = [
 ]
 
 CART_SESSION_ID = 'cart'
-
-#      ╭──────────────────────────────────────────────────────────╮
-#      │                   Email Configuration                    │
-#      ╰──────────────────────────────────────────────────────────╯
-# ━━ THIS SECTION CONFIGURES THE EMAIL BACKEND FOR SENDING EMAILS IN THE APPLICATION. ━━
-EMAIL_CONFIG = env.email_url('EMAIL_URL')
-vars().update(EMAIL_CONFIG)
-
 SITE_ID = 1
-
 ASGI_APPLICATION = 'ecommerce_api.asgi.application'
 
 SMS_IR_OTP_TEMPLATE_ID = env('SMS_IR_OTP_TEMPLATE_ID', default=123456)
@@ -380,33 +241,25 @@ AUTHENTICATION_BACKENDS = [
     'django.contrib.auth.backends.ModelBackend',
     'social_core.backends.google.GoogleOAuth2',
 ]
-SOCIAL_AUTH_GOOGLE_OAUTH2_KEY = env('GOOGLE_OAUTH2_KEY')
-SOCIAL_AUTH_GOOGLE_OAUTH2_SECRET = env('GOOGLE_OAUTH2_SECRET')
 
 DJOSER = {
     'HIDE_USERS': True,
     'EMAIL': {
-        'activation': 'account.emails.CustomActivationEmail',  # Path to your custom class
+        'activation': 'account.emails.CustomActivationEmail',
     },
-    # Specifies the custom serializers
     'SERIALIZERS': {
-        'user_create': 'users.api.serializers.UserProfileSerializer',  # Register user with profile
+        'user_create': 'users.api.serializers.UserProfileSerializer',
         'user_delete': 'djoser.serializers.UserDeleteSerializer',
     },
-    'LOGIN_FIELD': 'email',  # Use email for login instead of username
-    'SEND_ACTIVATION_EMAIL': True,  # Send activation email upon registration
-    'SEND_CONFIRMATION_EMAIL': True,  # Send confirmation email for actions like password changes
-    'ACTIVATION_URL': 'auth/activate/{uid}/{token}',  # URL endpoint for account activation
-
-    # URL endpoints for password reset and username reset confirmations
+    'LOGIN_FIELD': 'email',
+    'SEND_ACTIVATION_EMAIL': True,
+    'SEND_CONFIRMATION_EMAIL': True,
+    'ACTIVATION_URL': 'auth/activate/{uid}/{token}',
     'PASSWORD_RESET_CONFIRM_URL': 'password/reset/confirm/{uid}/{token}',
     'USERNAME_RESET_CONFIRM_URL': 'username/reset/confirm/{uid}/{token}',
-
-    'PASSWORD_RESET_SHOW_EMAIL': True,  # Show email in the password reset form
-    'USERNAME_CHANGED_EMAIL_CONFIRMATION': True,  # Send confirmation email if username is changed
-    'PASSWORD_CHANGED_EMAIL_CONFIRMATION': True,  # Send confirmation email if password is changed
-
-    # Require password retype during user creation for verification
+    'PASSWORD_RESET_SHOW_EMAIL': True,
+    'USERNAME_CHANGED_EMAIL_CONFIRMATION': True,
+    'PASSWORD_CHANGED_EMAIL_CONFIRMATION': True,
     'USER_CREATE_PASSWORD_RETYPE': True,
 }
 
@@ -419,65 +272,30 @@ SWAGGER_SETTINGS = {
             'type': 'apiKey',
             'name': 'Authorization',
             'in': 'header',
-            'description': "JWT Authorization header using the Bearer scheme. Example: \"Authorization: Bearer {token}",
+            'description': "JWT Authorization header using the Bearer scheme. Example: \"Authorization: Bearer {token}\"",
         }
     },
     'USE_SESSION_AUTH': False,
 }
 
-DOMAIN = env('DOMAIN')
-SITE_NAME = env('SITE_NAME')
 
 TAGGIT_CASE_INSENSITIVE = True
 
-# Celery Configuration using Redis
-CELERY_BROKER_URL = env('CELERY_BROKER_URL')
-CELERY_RESULT_BACKEND = env('CELERY_RESULT_BACKEND')
+# Celery Configuration
 CELERY_ACCEPT_CONTENT = ['json']
 CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
 CELERY_TIMEZONE = 'UTC'
 
-if 'test' in sys.argv:
-    SESSION_ENGINE = 'django.contrib.sessions.backends.db'
-else:
-    SESSION_ENGINE = "django.contrib.sessions.backends.cache"
-    SESSION_CACHE_ALIAS = "default"
-
-# Session cookie settings - Fixed for admin compatibility
+# Session cookie settings
 SESSION_COOKIE_SAMESITE = 'Lax'
 SESSION_COOKIE_SECURE = env.bool("SESSION_COOKIE_SECURE", default=True)
-SESSION_COOKIE_AGE = 1209600  # 2 weeks
-SESSION_SAVE_EVERY_REQUEST = True  # Ensure sessions are saved on every request
+SESSION_COOKIE_AGE = 1209600
+SESSION_SAVE_EVERY_REQUEST = True
 
-# CSRF settings - Updated for better compatibility
+# CSRF settings
 CSRF_COOKIE_SAMESITE = 'Lax'
 CSRF_COOKIE_SECURE = env.bool("CSRF_COOKIE_SECURE", default=True)
-CSRF_TRUSTED_ORIGINS = env.list('CSRF_TRUSTED_ORIGINS', default=[])
-
-LOGGING = {
-    'version': 1,
-    'disable_existing_loggers': False,
-    'formatters': {
-        'json_formatter': {
-            'class': 'pythonjsonlogger.jsonlogger.JsonFormatter',
-            'format': '%(asctime)s %(levelname)s %(name)s %(module)s %(funcName)s %(lineno)d %(message)s'
-        },
-        'simple': {
-            'format': '%(asctime)s %(levelname)s %(message)s'
-        },
-    },
-    'handlers': {
-        'console': {
-            'class': 'logging.StreamHandler',
-            'formatter': 'json_formatter' if not DEBUG else 'simple',
-        },
-    },
-    'root': {
-        'handlers': ['console'],
-        'level': 'INFO',
-    },
-}
 
 # OpenTelemetry settings
 OTEL_SERVICE_NAME = env('OTEL_SERVICE_NAME', default='ecommerce-api')

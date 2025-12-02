@@ -24,6 +24,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 from drf_spectacular.views import SpectacularAPIView, SpectacularRedocView, SpectacularSwaggerView
 
+from ecommerce_api.views import health_check
 from shop.feeds import TrendingProductsFeed
 from shop.sitemaps import ProductSitemap
 from account.views import ActivateView
@@ -51,6 +52,7 @@ def api_root(request):
 
 
 urlpatterns = [
+    path('health-check/', health_check, name='health-check'),
     path('metrics/', include('django_prometheus.urls')),
     path('', api_root, name='api-root'),  # Handle root path requests
     path('auth/', include('account.urls', namespace='auth')),
