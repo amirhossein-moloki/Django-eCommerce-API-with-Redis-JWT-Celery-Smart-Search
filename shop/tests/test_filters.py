@@ -10,7 +10,7 @@ from shop.models import Category, Product
 class FilterTests(APITestCase):
     @classmethod
     def setUpTestData(cls):
-        cls.user = get_user_model().objects.create_user(email='testuser@example.com', password='testpassword')
+        cls.user = get_user_model().objects.create_user(phone_number='+989123456713', email='testuser@example.com', password='testpassword')
         cls.category1 = Category.objects.create(name='Electronics')
         cls.category2 = Category.objects.create(name='Books')
 

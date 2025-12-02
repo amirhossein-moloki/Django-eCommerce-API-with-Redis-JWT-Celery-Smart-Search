@@ -13,8 +13,8 @@ User = get_user_model()
 class CategoryViewSetTest(APITestCase):
     def setUp(self):
         self.client = APIClient()
-        self.user = User.objects.create_user(username='testuser', email='test@example.com', password='password')
-        self.admin_user = User.objects.create_superuser(username='admin', email='admin@example.com', password='password')
+        self.user = User.objects.create_user(phone_number='+989123456780', username='testuser', email='test@example.com', password='password')
+        self.admin_user = User.objects.create_superuser(phone_number='+989123456781', username='admin', email='admin@example.com', password='password')
         self.category = Category.objects.create(name='Test Category')
         self.list_url = reverse('api-v1:category-list')
         self.detail_url = reverse('api-v1:category-detail', kwargs={'slug': self.category.slug})
@@ -54,8 +54,8 @@ class CategoryViewSetTest(APITestCase):
 class ProductViewSetTest(APITestCase):
     def setUp(self):
         self.client = APIClient()
-        self.user1 = User.objects.create_user(username='user1', email='user1@example.com', password='password')
-        self.user2 = User.objects.create_user(username='user2', email='user2@example.com', password='password')
+        self.user1 = User.objects.create_user(phone_number='+989123456782', username='user1', email='user1@example.com', password='password')
+        self.user2 = User.objects.create_user(phone_number='+989123456783', username='user2', email='user2@example.com', password='password')
         self.category = Category.objects.create(name='Test Category')
         self.product = Product.objects.create(
             name='Test Product', price=10, stock=5, category=self.category, user=self.user1,
@@ -106,8 +106,8 @@ class ProductViewSetTest(APITestCase):
 class ReviewViewSetTest(APITestCase):
     def setUp(self):
         self.client = APIClient()
-        self.user1 = User.objects.create_user(username='user1', email='user1@example.com', password='password')
-        self.user2 = User.objects.create_user(username='user2', email='user2@example.com', password='password')
+        self.user1 = User.objects.create_user(phone_number='+989123456784', username='user1', email='user1@example.com', password='password')
+        self.user2 = User.objects.create_user(phone_number='+989123456785', username='user2', email='user2@example.com', password='password')
         self.category = Category.objects.create(name='Test Category')
         self.product = Product.objects.create(
             name='Test Product', price=10, stock=5, category=self.category, user=self.user1,

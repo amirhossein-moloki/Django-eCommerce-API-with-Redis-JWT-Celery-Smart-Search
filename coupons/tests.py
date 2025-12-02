@@ -55,6 +55,7 @@ class CouponModelTests(TestCase):
 class CouponViewSetTests(APITestCase):
     def setUp(self):
         self.staff_user = User.objects.create_user(
+            phone_number='+989123456727',
             email='staff@example.com',
             username='staff',
             password='password',

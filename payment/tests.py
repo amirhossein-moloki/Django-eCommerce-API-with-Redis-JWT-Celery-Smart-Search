@@ -35,6 +35,7 @@ class PaymentGatewayTests(TestCase):
 class PaymentAPIViewTests(APITestCase):
     def setUp(self):
         self.user = User.objects.create_user(
+            phone_number='+989123456717',
             email='test@example.com',
             username='testuser',
             password='password'

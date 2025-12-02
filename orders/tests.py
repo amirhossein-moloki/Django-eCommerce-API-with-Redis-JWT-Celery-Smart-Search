@@ -17,6 +17,7 @@ User = get_user_model()
 class OrderModelTests(TestCase):
     def setUp(self):
         self.user = User.objects.create_user(
+            phone_number='+989123456714',
             email='test@example.com',
             username='testuser',
             password='password'
@@ -62,6 +63,7 @@ class OrderModelTests(TestCase):
 class OrderViewSetTests(APITestCase):
     def setUp(self):
         self.user = User.objects.create_user(
+            phone_number='+989123456715',
             email='test@example.com',
             username='testuser',
             password='password'
@@ -104,6 +106,7 @@ class OrderIntegrationTest(APITestCase):
         """
         # Create a user
         self.user = User.objects.create_user(
+            phone_number='+989123456716',
             email='testuser@example.com',
             password='testpassword123',
             first_name='Test',

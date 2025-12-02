@@ -5,34 +5,6 @@ from account import views
 
 class AccountUrlsTest(SimpleTestCase):
 
-    def test_register_url_resolves(self):
-        url = reverse('auth:register')
-        self.assertEqual(resolve(url).func.cls, views.UserViewSet)
-
-    def test_activate_url_resolves(self):
-        url = reverse('auth:activate')
-        self.assertEqual(resolve(url).func.cls, views.UserViewSet)
-
-    def test_activate_form_url_resolves(self):
-        url = reverse('auth:activate-form', args=['uid', 'token'])
-        self.assertEqual(resolve(url).func.view_class, views.ActivateView)
-
-    def test_set_password_url_resolves(self):
-        url = reverse('auth:set_password')
-        self.assertEqual(resolve(url).func.cls, views.UserViewSet)
-
-    def test_reset_password_url_resolves(self):
-        url = reverse('auth:reset_password')
-        self.assertEqual(resolve(url).func.cls, views.UserViewSet)
-
-    def test_reset_password_confirm_url_resolves(self):
-        url = reverse('auth:reset_password_confirm')
-        self.assertEqual(resolve(url).func.cls, views.UserViewSet)
-
-    def test_jwt_create_url_resolves(self):
-        url = reverse('auth:jwt-create')
-        self.assertEqual(resolve(url).func.view_class, views.TokenObtainPairView)
-
     def test_jwt_refresh_url_resolves(self):
         url = reverse('auth:jwt-refresh')
         self.assertEqual(resolve(url).func.view_class, views.TokenRefreshView)
@@ -60,3 +32,7 @@ class AccountUrlsTest(SimpleTestCase):
     def test_verify_otp_url_resolves(self):
         url = reverse('auth:verify-otp')
         self.assertEqual(resolve(url).func.view_class, views.VerifyOTP)
+
+    def test_complete_profile_url_resolves(self):
+        url = reverse('auth:complete-profile')
+        self.assertEqual(resolve(url).func.view_class, views.CompleteProfileView)

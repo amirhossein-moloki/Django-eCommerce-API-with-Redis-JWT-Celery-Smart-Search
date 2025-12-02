@@ -10,7 +10,7 @@ User = get_user_model()
 
 class ProductSerializerTest(TestCase):
     def setUp(self):
-        self.user = User.objects.create_user(username='testuser', email='test@example.com', password='password')
+        self.user = User.objects.create_user(phone_number='+989123456705', username='testuser', email='test@example.com', password='password')
         self.category = Category.objects.create(name='Test Category', slug='test-category')
         self.valid_data = {
             'name': 'New Product',
