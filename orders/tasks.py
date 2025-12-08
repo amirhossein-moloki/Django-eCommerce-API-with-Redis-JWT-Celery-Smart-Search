@@ -26,3 +26,19 @@ def send_order_confirmation_email(self, order_pk):
     except Exception as e:
         logger.error(f"Error sending confirmation email for order {order_pk}: {e}")
         raise self.retry(exc=e)
+
+from django.utils import timezone
+from datetime import timedelta
+
+@shared_task
+def cancel_pending_orders():
+    """
+    Task to cancel pending orders that have not been paid for within a certain timeframe.
+    """
+    time_threshold = timezone.now() - timedelta(minutes=20)
+    pending_orders = Order.objects.filter(status=Order.Status.PENDING, order_date__lte=time_threshold)
+
+    for order in pending_orders:
+        order.status = Order.Status.CANCELED
+        order.save()
+        logger.info(f"Canceled pending order {order.order_id}")

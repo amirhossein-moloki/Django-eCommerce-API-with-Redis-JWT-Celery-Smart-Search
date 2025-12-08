@@ -64,6 +64,7 @@ THIRD_PARTY_APPS = [
     'django_extensions',  # Additional management commands and utilities
     'rest_framework_simplejwt.token_blacklist',  # JWT token blacklist for security
     'corsheaders',  # Cross-Origin Resource Sharing (CORS) headers
+    'ratelimit',  # Rate limiting for views
     'django_prometheus',  # Prometheus metrics for Django
 ]
 
@@ -292,6 +293,13 @@ CELERY_ACCEPT_CONTENT = ['json']
 CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
 CELERY_TIMEZONE = 'UTC'
+
+CELERY_BEAT_SCHEDULE = {
+    'cancel-pending-orders': {
+        'task': 'orders.tasks.cancel_pending_orders',
+        'schedule': 600.0,  # Run every 10 minutes
+    },
+}
 
 # Session cookie settings
 SESSION_COOKIE_SAMESITE = 'Lax'

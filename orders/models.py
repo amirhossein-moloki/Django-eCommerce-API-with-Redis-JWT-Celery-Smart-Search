@@ -88,22 +88,29 @@ class Order(ExportModelOperationsMixin('order'), models.Model):
         """
         Override save to validate state transitions and restore stock on cancellation.
         """
-        self.clean()  # Perform validation
+        is_canceling = self.status == self.Status.CANCELED and self._original_status != self.Status.CANCELED
 
-        # Check if the order is being canceled
-        if self.status == self.Status.CANCELED and self._original_status != self.Status.CANCELED:
+        if is_canceling:
             self.restore_stock()
 
+        self.clean()
         super().save(*args, **kwargs)
-        self._original_status = self.status  # Update original status after save
+        self._original_status = self.status
 
     def restore_stock(self):
         """
-        Restore the stock for all items in a canceled order.
+        Restore the stock for all items in a canceled order,
+        only if the order has not been shipped or delivered.
         """
+        if self._original_status in [self.Status.SHIPPED, self.Status.DELIVERED]:
+            # Log this attempt or raise a specific exception
+            # For now, we just prevent stock restoration
+            return
+
         for item in self.items.all():
             product = item.product
-            product.stock += item.quantity
+            # Use atomic update to prevent race conditions
+            product.stock = models.F('stock') + item.quantity
             product.save(update_fields=['stock'])
 
     def get_total_cost_before_discount(self):
@@ -155,6 +162,8 @@ class Order(ExportModelOperationsMixin('order'), models.Model):
 class OrderItem(models.Model):
     order = models.ForeignKey(Order, related_name='items', on_delete=models.CASCADE)
     product = models.ForeignKey(Product, related_name='order_items', on_delete=models.CASCADE)
+    product_name = models.CharField(max_length=255)
+    product_sku = models.CharField(max_length=100, blank=True, null=True)
     price = models.DecimalField(max_digits=10, decimal_places=2)
     quantity = models.PositiveSmallIntegerField(default=1)
 

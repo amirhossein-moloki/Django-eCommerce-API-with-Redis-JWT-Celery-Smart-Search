@@ -74,6 +74,7 @@ class Product(SluggedModel):
     Represents a product in the e-commerce store.
     """
     product_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False, help_text="The unique identifier for the product.")
+    sku = models.CharField(max_length=100, unique=True, blank=True, null=True, help_text="The stock keeping unit for the product.")
     description = models.TextField(help_text="A detailed description of the product.")
     price = models.DecimalField(max_digits=10, decimal_places=2, validators=[MinValueValidator(0.0)], help_text="The price of the product.")
     stock = models.IntegerField(validators=[MinValueValidator(0)], help_text="The number of items in stock.")

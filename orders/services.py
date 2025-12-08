@@ -12,11 +12,18 @@ def get_user_orders(user):
     return Order.objects.filter(user=user).prefetch_related('items__product', 'user', 'address', 'coupon')
 
 
+import logging
+
+logger = logging.getLogger(__name__)
+
 @transaction.atomic
 def create_order(request, validated_data):
     serializer = OrderCreateSerializer(data=validated_data, context={'request': request})
     serializer.is_valid(raise_exception=True)
     order = serializer.save()
     if 'test' not in sys.argv:
-        send_order_confirmation_email.delay(order.order_id)
+        try:
+            send_order_confirmation_email.delay(order.order_id)
+        except Exception as e:
+            logger.error(f"Failed to send order confirmation email for order {order.order_id}: {e}")
     return order

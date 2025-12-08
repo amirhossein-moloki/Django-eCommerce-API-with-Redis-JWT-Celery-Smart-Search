@@ -98,3 +98,4 @@ opentelemetry-sdk==1.22.0
 opentelemetry-instrumentation-django==0.43b0
 opentelemetry-exporter-otlp==1.22.0
 python-magic==0.4.27
+django-ratelimit

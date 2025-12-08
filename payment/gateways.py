@@ -2,6 +2,8 @@ import requests
 from abc import ABC, abstractmethod
 from django.conf import settings
 import logging
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 
 logger = logging.getLogger(__name__)
 
@@ -21,6 +23,18 @@ class ZibalGateway(PaymentGateway):
         self.merchant_id = getattr(settings, 'ZIBAL_MERCHANT_ID', None)
         self.api_url = 'https://gateway.zibal.ir/v1'
 
+        # Configure retry mechanism
+        retry_strategy = Retry(
+            total=3,
+            backoff_factor=1,
+            status_forcelist=[429, 500, 502, 503, 504],
+            allowed_methods=["HEAD", "GET", "POST", "OPTIONS"]
+        )
+        adapter = HTTPAdapter(max_retries=retry_strategy)
+        self.session = requests.Session()
+        self.session.mount("https://", adapter)
+        self.session.mount("http://", adapter)
+
     def create_payment_request(self, amount, order_id, callback_url):
         headers = {'Content-Type': 'application/json'}
         data = {
@@ -31,7 +45,7 @@ class ZibalGateway(PaymentGateway):
         }
         logger.info(f"Creating Zibal payment request for order {order_id}: {data}")
         try:
-            response = requests.post(f'{self.api_url}/request', json=data, headers=headers)
+            response = self.session.post(f'{self.api_url}/request', json=data, headers=headers, timeout=5)
             response.raise_for_status()
             logger.info(f"Zibal payment request response for order {order_id}: {response.json()}")
             return response.json()
@@ -47,7 +61,7 @@ class ZibalGateway(PaymentGateway):
         }
         logger.info(f"Verifying Zibal payment for trackId {payload_or_authority}: {data}")
         try:
-            response = requests.post(f'{self.api_url}/verify', json=data, headers=headers)
+            response = self.session.post(f'{self.api_url}/verify', json=data, headers=headers, timeout=5)
             response.raise_for_status()
             logger.info(f"Zibal payment verification response for trackId {payload_or_authority}: {response.json()}")
             return response.json()

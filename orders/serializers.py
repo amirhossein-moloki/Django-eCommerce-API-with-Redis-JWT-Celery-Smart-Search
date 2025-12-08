@@ -15,12 +15,11 @@ class OrderItemSerializer(serializers.ModelSerializer):
     Serializer for the OrderItem model.
     Provides detailed information about a product within an order.
     """
-    product = serializers.StringRelatedField()
     price = serializers.DecimalField(max_digits=10, decimal_places=2, source='get_cost')
 
     class Meta:
         model = OrderItem
-        fields = ('product', 'quantity', 'price')
+        fields = ('product_name', 'product_sku', 'quantity', 'price')
 
 
 class OrderSerializer(serializers.ModelSerializer):
@@ -116,12 +115,17 @@ class OrderCreateSerializer(serializers.Serializer):
 
             locked_products_map = {p.product_id: p for p in locked_products}
 
-            # Create the order
-            # Set coupon on the cart model before calculating discount
+            # Re-validate coupon inside the transaction to prevent race conditions
             if coupon:
-                cart.cart.coupon = coupon
+                locked_coupon = Coupon.objects.select_for_update().get(pk=coupon.pk)
+                if not locked_coupon.is_valid() or locked_coupon.usage_count >= locked_coupon.max_usage:
+                    raise ValidationError({'coupon_code': 'This coupon is no longer valid.'})
+
+                # Set coupon on the cart model for discount calculation
+                cart.cart.coupon = locked_coupon
                 cart.cart.save()
 
+            # Create the order
             order = Order.objects.create(
                 user=user,
                 address=address,
@@ -130,7 +134,8 @@ class OrderCreateSerializer(serializers.Serializer):
             )
 
             if coupon:
-                coupon.increment_usage_count()
+                # Increment usage count on the locked instance
+                locked_coupon.increment_usage_count()
 
             # Create order items and update product stock
             items_to_create = []
@@ -155,6 +160,8 @@ class OrderCreateSerializer(serializers.Serializer):
                     OrderItem(
                         order=order,
                         product=product,
+                        product_name=product.name,
+                        product_sku=product.sku,
                         quantity=item['quantity'],
                         price=product.price
                     )

@@ -14,6 +14,8 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework.permissions import IsAuthenticated
+from django.utils.decorators import method_decorator
+from ratelimit.decorators import ratelimit
 from rest_framework_simplejwt.views import (
     TokenBlacklistView,
     TokenObtainPairView as BaseTokenObtainPairView,
@@ -265,12 +267,15 @@ class ActivateView(View):
 
 
 def generate_otp():
+    otp = str(random.randint(100000, 999999))
     if settings.DEBUG:
-        return "123456"
-    return str(random.randint(100000, 999999))
+        logger.info(f"Generated OTP for development: {otp}")
+    return otp
 
 
 class RequestOTP(APIView):
+    @method_decorator(ratelimit(key='post:phone', rate='1/2m', method='POST', block=True))
+    @method_decorator(ratelimit(key='ip', rate='5/m', method='POST', block=True))
     def post(self, request):
         phone = request.data.get('phone')
         if not phone:

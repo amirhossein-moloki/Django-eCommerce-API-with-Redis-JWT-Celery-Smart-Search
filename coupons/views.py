@@ -4,6 +4,8 @@ from drf_spectacular.utils import extend_schema, OpenApiResponse, extend_schema_
 from rest_framework import viewsets, permissions, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
+from django.utils.decorators import method_decorator
+from ratelimit.decorators import ratelimit
 
 from cart.cart import Cart
 from coupons.models import Coupon
@@ -101,6 +103,7 @@ class CouponViewSet(viewsets.ModelViewSet):
             logger.error(f"Error deactivating coupon: {e}", exc_info=True)
             raise
 
+    @method_decorator(ratelimit(key='ip', rate='10/m', method='POST', block=True))
     @action(
         detail=False,
         methods=['post'],
