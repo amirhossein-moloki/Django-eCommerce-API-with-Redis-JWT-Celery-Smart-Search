@@ -28,13 +28,16 @@ class RequestOTP(APIView):
         provider = SmsIrProvider()
         # You should get the template ID from settings
         from django.conf import settings
+        from .providers import SmsProviderError
 
         template_id = settings.SMS_IR_OTP_TEMPLATE_ID
-        response = provider.send_otp(phone, code, template_id)
-
-        if response.get("error"):
+        try:
+            provider.send_otp(phone, code, template_id)
+        except SmsProviderError as e:
+            # Log the exception for debugging purposes
+            # logger.error(f"Failed to send OTP to {phone}: {e}")
             return ApiResponse.error(
-                message="Failed to send OTP",
+                message=f"Failed to send OTP: {e}",
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
