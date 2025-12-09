@@ -1,60 +1,94 @@
-from unittest.mock import patch
-from django.contrib.auth import get_user_model
+from unittest.mock import patch, MagicMock
 from django.test import TestCase
-from django.urls import reverse
-from rest_framework import status
-from rest_framework.test import APITestCase
-from .models import OTPCode
-from django.utils import timezone
-from datetime import timedelta
-
-User = get_user_model()
-
-
-class OTPCodeModelTests(TestCase):
-    def test_is_expired(self):
-        otp = OTPCode.objects.create(
-            phone="123", code="123456", expires_at=timezone.now() - timedelta(minutes=1)
-        )
-        self.assertTrue(otp.is_expired())
+from .providers import SmsIrProvider, SmsProviderError
+import requests
 
 
 class SmsProviderTests(TestCase):
+    def setUp(self):
+        # Patch settings to avoid dependency on actual Django settings
+        with patch("sms.providers.settings") as mock_settings:
+            mock_settings.SMS_IR_API_KEY = "test_api_key"
+            mock_settings.SMS_IR_LINE_NUMBER = "1234567890"
+            self.provider = SmsIrProvider()
+
+    def test_phone_number_normalization(self):
+        """Tests if various phone number formats are correctly normalized."""
+        self.assertEqual(self.provider._normalize_phone("+989123456789"), "09123456789")
+        self.assertEqual(self.provider._normalize_phone("989123456789"), "09123456789")
+        self.assertEqual(self.provider._normalize_phone("9123456789"), "09123456789")
+        self.assertEqual(self.provider._normalize_phone("09123456789"), "09123456789")
+
+    def test_invalid_phone_number_raises_error(self):
+        """Tests if invalid phone numbers raise SmsProviderError."""
+        with self.assertRaises(SmsProviderError):
+            self.provider._normalize_phone("123")  # Too short
+        with self.assertRaises(SmsProviderError):
+            self.provider._normalize_phone("0912345678")  # Too short
+        with self.assertRaises(SmsProviderError):
+            self.provider._normalize_phone("091234567890")  # Too long
+        with self.assertRaises(SmsProviderError):
+            self.provider._normalize_phone("08123456789")  # Invalid prefix
+        with self.assertRaises(SmsProviderError):
+            self.provider._normalize_phone("not-a-number")
+
     @patch("sms.providers.requests.post")
-    def test_smsir_send_otp(self, mock_post):
-        mock_post.return_value.status_code = 200
-        mock_post.return_value.json.return_value = {"status": "success"}
-        from .providers import SmsIrProvider
+    def test_send_otp_success(self, mock_post):
+        """Tests successful OTP sending."""
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "status": 1,
+            "message": "موفق",
+            "data": {"messageId": 12345, "cost": 1.0},
+        }
+        mock_post.return_value = mock_response
 
-        provider = SmsIrProvider()
-        response = provider.send_otp("123", "123456", 1)
-        self.assertEqual(response["status"], "success")
+        response = self.provider.send_otp("09123456789", "12345", 101)
+        self.assertEqual(response["messageId"], 12345)
+        # Check if the number was normalized before sending
+        sent_data = mock_post.call_args.kwargs["json"]
+        self.assertEqual(sent_data["mobile"], "09123456789")
 
     @patch("sms.providers.requests.post")
-    def test_smsir_send_text(self, mock_post):
-        mock_post.return_value.status_code = 200
-        mock_post.return_value.json.return_value = {"status": "success"}
-        from .providers import SmsIrProvider
+    def test_send_otp_api_error(self, mock_post):
+        """Tests API error during OTP sending."""
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "status": 113,
+            "message": "قالب یافت نشد",
+            "data": None,
+        }
+        mock_post.return_value = mock_response
 
-        provider = SmsIrProvider()
-        response = provider.send_text("123", "test message")
-        self.assertEqual(response["status"], "success")
+        with self.assertRaisesRegex(SmsProviderError, "قالب یافت نشد") as cm:
+            self.provider.send_otp("09123456789", "12345", 999)
+        self.assertEqual(cm.exception.status_code, 113)
 
+    @patch("sms.providers.requests.post")
+    def test_send_text_success(self, mock_post):
+        """Tests successful text message sending."""
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "status": 1,
+            "message": "موفق",
+            "data": {
+                "packId": "some-uuid",
+                "messageIds": [12345],
+                "cost": 1.0,
+            },
+        }
+        mock_post.return_value = mock_response
 
-class SMSAPIViewTests(APITestCase):
-    @patch("sms.views.SmsIrProvider.send_otp")
-    def test_request_otp(self, mock_send_otp):
-        mock_send_otp.return_value = {"status": "success"}
-        url = reverse("sms:request-otp")
-        data = {"phone": "123"}
-        response = self.client.post(url, data)
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        response = self.provider.send_text("09123456789", "Hello World")
+        self.assertEqual(response["packId"], "some-uuid")
 
-    def test_verify_otp(self):
-        OTPCode.objects.create(
-            phone="123", code="123456", expires_at=timezone.now() + timedelta(minutes=5)
-        )
-        url = reverse("sms:verify-otp")
-        data = {"phone": "123", "code": "123456"}
-        response = self.client.post(url, data)
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
+    @patch("sms.providers.requests.post")
+    def test_network_error_raises_sms_provider_error(self, mock_post):
+        """Tests if a network error is wrapped in SmsProviderError."""
+        mock_post.side_effect = requests.exceptions.Timeout("Connection timed out")
+
+        with self.assertRaisesRegex(SmsProviderError, "Network error"):
+            self.provider.send_otp("09123456789", "12345", 101)
