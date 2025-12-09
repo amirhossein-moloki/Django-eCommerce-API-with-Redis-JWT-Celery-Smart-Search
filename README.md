@@ -61,16 +61,45 @@ docker-compose up -d --build
 
 ## ✅ Tests & Coverage
 
-Run tests:
-```bash
-docker-compose exec web pytest
-```
+You can run the suite either inside Docker or directly on your host. The test
+settings (`ecommerce_api.settings.test`) use a file-based SQLite database and
+`conftest.py` automatically applies migrations and flushes data between tests.
 
-Coverage:
-```bash
-docker-compose exec web coverage run -m pytest
-docker-compose exec web coverage report
-```
+### Docker
+- Run tests:
+  ```bash
+  docker-compose exec web pytest --maxfail=1
+  ```
+- Collect trace-based coverage (writes `trace_coverage_report.txt` and prints a
+  summary):
+  ```bash
+  docker-compose exec web pytest \
+    --cov account --cov shop --cov ecommerce_api --cov-report term-missing
+  ```
+
+### Local environment
+1. Create and activate a virtual environment:
+   ```bash
+   python -m venv .venv
+   source .venv/bin/activate
+   ```
+2. Install dependencies (use `requirements-dev.txt` for pytest):
+   ```bash
+   pip install -r requirements-dev.txt
+   ```
+3. Run tests with the bundled test settings (no extra env vars needed):
+   ```bash
+   pytest --maxfail=1
+   ```
+4. Collect coverage for specific apps or modules:
+ ```bash
+  pytest --cov account --cov shop --cov ecommerce_api --cov-report term-missing
+  ```
+   A plain-text summary is printed to the terminal and also saved to
+   `trace_coverage_report.txt`.
+
+For more detailed workflows (including targeting individual tests), see
+`docs/TESTING.md`.
 
 ---
 
