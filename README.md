@@ -1,108 +1,109 @@
-Hypex eCommerce API (Django REST Framework)
+# Hypex eCommerce API (Django REST Framework)
 
 Hypex is a production-oriented eCommerce backend API built with Django and Django REST Framework (DRF).
 It includes JWT authentication, Redis caching, Celery background tasks, OpenAPI/Swagger documentation, and core commerce modules like products, cart, orders, payments, coupons, shipping, plus real-time chat via Django Channels.
 
-Keywords: Django eCommerce API, DRF eCommerce, REST API, JWT, Redis, Celery, Docker, Swagger, OpenAPI, Orders, Payments, Coupons, Shipping
+**Keywords:** Django eCommerce API, DRF eCommerce, REST API, JWT, Redis, Celery, Docker, Swagger, OpenAPI, Orders, Payments, Coupons, Shipping
 
-✨ Highlights (What you get out of the box)
+---
 
-Modular, scalable architecture (clean separation of domains)
+## ✨ Highlights (What you get out of the box)
 
-Auth & Accounts: JWT auth (djoser, simplejwt), profiles, addresses, OTP/SMS
+- Modular, scalable architecture (clean separation of domains)
+- Auth & Accounts: JWT auth (djoser, simplejwt), profiles, addresses, OTP/SMS
+- Catalog: products, categories, reviews, tagging, advanced search
+- Cart & Checkout: persistent cart, order lifecycle, coupons/discounts
+- Payments & Shipping: payment module + shipping options/costs
+- Async & Performance: Celery + Redis for background jobs and Redis caching
+- Docs: OpenAPI 3 schema with Swagger UI / ReDoc via drf-spectacular
+- Real-time: chat support using Django Channels (ASGI)
+- DevOps ready: Docker + Docker Compose, Nginx config, Helm chart included
+- Observability: Prometheus metrics + OpenTelemetry tracing hooks
 
-Catalog: products, categories, reviews, tagging, advanced search
+---
 
-Cart & Checkout: persistent cart, order lifecycle, coupons/discounts
+## 🧩 Tech Stack
 
-Payments & Shipping: payment module + shipping options/costs
+- Backend: Django, Django REST Framework (DRF)
+- Auth: JWT (djoser, simplejwt), Google social login
+- Cache / Queue: Redis, Celery
+- Docs: drf-spectacular (OpenAPI 3, Swagger UI, ReDoc)
+- Realtime: Django Channels
+- Deployment: Docker, Docker Compose, Nginx, Helm (Kubernetes)
 
-Async & Performance: Celery + Redis for background jobs and Redis caching
+---
 
-Docs: OpenAPI 3 schema with Swagger UI / ReDoc via drf-spectacular
+## 🚀 Quickstart (Docker)
 
-Real‑time: chat support using Django Channels (ASGI)
+### Prerequisites
+- Docker
+- Docker Compose
 
-DevOps ready: Docker + Docker Compose, Nginx config, Helm chart included
-
-Observability: Prometheus metrics + OpenTelemetry tracing hooks
-
-🧩 Tech Stack
-
-Backend: Django, Django REST Framework (DRF)
-
-Auth: JWT (djoser, simplejwt), Google social login
-
-Cache / Queue: Redis, Celery
-
-Docs: drf-spectacular (OpenAPI 3, Swagger UI, ReDoc)
-
-Realtime: Django Channels
-
-Deployment: Docker, Docker Compose, Nginx, Helm (Kubernetes)
-
-🚀 Quickstart (Docker)
-Prerequisites
-
-Docker
-
-Docker Compose
-
-Run locally
+### Run locally
+```bash
 git clone https://github.com/amirhossein-moloki/django-ecommerce-api.git
 cd django-ecommerce-api
 cp .env.example .env
 docker-compose up -d --build
+```
 
-🔗 API Endpoints
+---
 
-API Root: http://localhost:80/api/v1/
+## 🔗 API Endpoints
 
-Swagger UI: http://localhost:80/api/v1/schema/swagger-ui/
+- API Root: `http://localhost:80/api/v1/`
+- Swagger UI: `http://localhost:80/api/v1/schema/swagger-ui/`
+- ReDoc: `http://localhost:80/api/v1/schema/redoc/`
+- Admin Panel: `http://localhost:80/admin/`
+- Celery Monitoring (Flower): `http://localhost:5555/`
 
-ReDoc: http://localhost:80/api/v1/schema/redoc/
+---
 
-Admin Panel: http://localhost:80/admin/
-
-Celery Monitoring (Flower): http://localhost:5555/
-
-✅ Tests & Coverage
+## ✅ Tests & Coverage
 
 Run tests:
-
+```bash
 docker-compose exec web pytest
-
+```
 
 Coverage:
-
+```bash
 docker-compose exec web coverage run -m pytest
 docker-compose exec web coverage report
+```
 
-🛠️ Debugging
+---
+
+## 🛠️ Debugging
 
 View logs:
-
+```bash
 docker-compose logs -f <service_name>
-
+```
 
 Open a shell inside a container:
-
+```bash
 docker-compose exec web sh
-
+```
 
 Use Django shell_plus:
-
+```bash
 docker-compose exec web python manage.py shell_plus
+```
 
-🏗️ Architecture & Design Docs
+---
 
-High‑Level Architecture: ./docs/ARCHITECTURE.md
+## 🏗️ Architecture & Design Docs
 
-Database ERD: ./docs/DATABASE.md
+- High-Level Architecture: `./docs/ARCHITECTURE.md`
+- Database ERD: `./docs/DATABASE.md`
+- Order Creation Sequence: `./docs/ORDER_SEQUENCE.md`
 
-Order Creation Sequence: ./docs/ORDER_SEQUENCE.md
+---
 
-🧱 Project Structure
+## 🧱 Project Structure
+
+```text
 .
 ├── account/        # JWT auth, profiles, addresses, OTP/SMS
 ├── cart/           # persistent cart logic
@@ -121,23 +122,18 @@ Order Creation Sequence: ./docs/ORDER_SEQUENCE.md
 ├── docker-compose.yml
 ├── Dockerfile
 └── manage.py
+```
 
-🧯 Production Notes (Checklist)
+---
+
+## 🧯 Production Notes (Checklist)
 
 Before going live:
-
-Set DEBUG=False and configure ALLOWED_HOSTS
-
-Use proper secrets management (Kubernetes Secrets / Vault / Docker Secrets)
-
-Enforce HTTPS behind Nginx / Load Balancer
-
-Use managed PostgreSQL + managed Redis for reliability
-
-Offload static/media to object storage (e.g., S3) + CDN
-
-Add CI/CD (lint, tests, build image, deploy)
-
-Centralize logs + enable APM/tracing (OpenTelemetry)
-
-Configure health checks and autoscaling
+- Set `DEBUG=False` and configure `ALLOWED_HOSTS`
+- Use proper secrets management (Kubernetes Secrets / Vault / Docker Secrets)
+- Enforce HTTPS behind Nginx / Load Balancer
+- Use managed PostgreSQL + managed Redis for reliability
+- Offload static/media to object storage (e.g., S3) + CDN
+- Add CI/CD (lint, tests, build image, deploy)
+- Centralize logs + enable APM/tracing (OpenTelemetry)
+- Configure health checks and autoscaling
