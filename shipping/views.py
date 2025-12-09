@@ -2,18 +2,24 @@ from rest_framework.views import APIView
 from rest_framework import status
 from django.shortcuts import get_object_or_404
 from orders.models import Order
-from .providers import PostexShippingProvider
+from .providers import PostexShippingProvider, ShippingProviderError
 from ecommerce_api.core.api_standard_response import ApiResponse
+import logging
+
+logger = logging.getLogger(__name__)
 
 class CityListAPIView(APIView):
     def get(self, request, *args, **kwargs):
-        provider = PostexShippingProvider()
-        response = provider.get_cities()
-
-        if response.get('error'):
-            return ApiResponse.error(message='Failed to get city list', status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-        return ApiResponse.success(data=response, status_code=status.HTTP_200_OK)
+        try:
+            provider = PostexShippingProvider()
+            response = provider.get_cities()
+            return ApiResponse.success(data=response, status_code=status.HTTP_200_OK)
+        except ShippingProviderError as e:
+            logger.error(f"Failed to get city list from Postex: {e}")
+            return ApiResponse.error(message=f"Failed to get city list: {e}", status_code=e.status_code or status.HTTP_503_SERVICE_UNAVAILABLE)
+        except Exception as e:
+            logger.exception("An unexpected error occurred while fetching city list.")
+            return ApiResponse.error(message="An unexpected error occurred.", status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 class CalculateShippingCostAPIView(APIView):
@@ -27,16 +33,26 @@ class CalculateShippingCostAPIView(APIView):
         if not order.address:
             return ApiResponse.error(message='Order address is not set', status_code=status.HTTP_400_BAD_REQUEST)
 
-        provider = PostexShippingProvider()
-        response = provider.get_shipping_quote(order)
+        try:
+            provider = PostexShippingProvider()
+            response = provider.get_shipping_quote(order)
 
-        if response.get('error') or not response.get('data'):
-            return ApiResponse.error(message='Failed to get shipping cost', status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            quotes = response.get('data', {}).get('quotes', [])
+            if not quotes:
+                return ApiResponse.error(message='No shipping options available for the destination.', status_code=status.HTTP_404_NOT_FOUND)
 
-        # Assuming the first quote is the desired one
-        shipping_cost = response['data'][0].get('price', 0)
+            # Assuming the first quote is the desired one
+            shipping_cost = quotes[0].get('price', 0)
 
-        order.shipping_cost = shipping_cost
-        order.save()
+            order.shipping_cost = shipping_cost
+            order.save(update_fields=['shipping_cost'])
 
-        return ApiResponse.success(data={'shipping_cost': shipping_cost}, status_code=status.HTTP_200_OK)
+            return ApiResponse.success(data={'shipping_cost': shipping_cost}, status_code=status.HTTP_200_OK)
+
+        except ShippingProviderError as e:
+            logger.error(f"Failed to get shipping cost for order {order_id}: {e}")
+            return ApiResponse.error(message=f"Failed to get shipping cost: {e}", status_code=e.status_code or status.HTTP_503_SERVICE_UNAVAILABLE)
+
+        except Exception as e:
+            logger.exception(f"An unexpected error occurred while calculating shipping cost for order {order_id}.")
+            return ApiResponse.error(message="An unexpected error occurred.", status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
