@@ -4,7 +4,7 @@ import os
 os.environ.setdefault('SECRET_KEY', 'dummy-secret-key-for-testing')
 os.environ.setdefault('DEBUG', 'False')
 os.environ.setdefault('ALLOWED_HOSTS', 'testserver')
-os.environ.setdefault('DATABASE_URL', 'sqlite:///:memory:')
+os.environ.setdefault('DATABASE_URL', 'sqlite:////tmp/test_db.sqlite3')
 os.environ.setdefault('REDIS_URL', 'redis://localhost:6379/1')
 os.environ.setdefault('CELERY_BROKER_URL', 'redis://localhost:6379/0')
 os.environ.setdefault('CELERY_RESULT_BACKEND', 'redis://localhost:6379/0')
@@ -18,6 +18,12 @@ os.environ.setdefault('SMS_IR_OTP_TEMPLATE_ID', '123456')
 from .base import *  # noqa: E402, F403
 
 # Override settings for a predictable test environment
+
+# Remove development-only dependencies that are not available in CI/test environments
+INSTALLED_APPS = [
+    app for app in INSTALLED_APPS if app not in {'debug_toolbar', 'django_extensions'}
+]
+MIDDLEWARE = [mw for mw in MIDDLEWARE if 'debug_toolbar' not in mw]
 
 # Use dummy cache for tests to avoid side effects
 CACHES = {

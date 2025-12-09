@@ -1,4 +1,4 @@
-import magic
+import mimetypes
 from django.core.exceptions import ValidationError
 from django.utils.deconstruct import deconstructible
 
@@ -20,7 +20,9 @@ class FileValidator:
             )
 
         if self.content_types:
-            file_mime_type = magic.from_buffer(file.read(2048), mime=True)
-            file.seek(0)  # Reset file pointer after reading
+            file_mime_type = getattr(file, "content_type", None)
+            if not file_mime_type:
+                file_mime_type, _ = mimetypes.guess_type(getattr(file, "name", ""))
+
             if file_mime_type not in self.content_types:
                 raise ValidationError(f"Unsupported file type: {file_mime_type}.")

@@ -1,43 +1,52 @@
-import factory
+import itertools
+import uuid
+
 from django.contrib.auth import get_user_model
-from faker import Faker
+
 from .models import Address
 
-fake = Faker()
-
-class UserFactory(factory.django.DjangoModelFactory):
-    class Meta:
-        model = get_user_model()
-        django_get_or_create = ('phone_number',)
-
-    phone_number = factory.LazyAttribute(lambda _: fake.phone_number()[:13])
-    email = factory.LazyAttribute(lambda o: f'{o.phone_number}@example.com')
-    username = factory.LazyAttribute(lambda o: f'user_{o.phone_number}')
-    first_name = factory.Faker('first_name')
-    last_name = factory.Faker('last_name')
-    is_active = True
-    is_staff = False
-
-    @factory.post_generation
-    def password(self, create, extracted, **kwargs):
-        if not create:
-            return
-        self.set_password(extracted or 'defaultpassword')
+_user_counter = itertools.count()
 
 
-class AdminUserFactory(UserFactory):
-    is_staff = True
-    is_superuser = True
+def _next_suffix():
+    return next(_user_counter)
 
 
-class AddressFactory(factory.django.DjangoModelFactory):
-    class Meta:
-        model = Address
+def UserFactory(**kwargs):
+    user_model = get_user_model()
+    idx = _next_suffix()
+    defaults = {
+        "phone_number": f"+100000000{idx:03d}",
+        "email": f"user{idx}@example.com",
+        "username": f"user_{idx}",
+        "first_name": "Test",
+        "last_name": "User",
+        "is_active": True,
+        "is_staff": False,
+        "is_superuser": False,
+    }
+    password = kwargs.pop("password", "defaultpassword")
+    defaults.update(kwargs)
 
-    user = factory.SubFactory(UserFactory)
-    province = factory.Faker('city')
-    city = factory.Faker('city')
-    postal_code = factory.Faker('postcode')
-    address_detail = factory.Faker('address')
-    receiver_name = factory.Faker('name')
-    receiver_phone_number = factory.LazyAttribute(lambda _: fake.phone_number()[:13])
+    user = user_model.objects.create(**defaults)
+    user.set_password(password)
+    user.save()
+    return user
+
+
+def AdminUserFactory(**kwargs):
+    return UserFactory(is_staff=True, is_superuser=True, **kwargs)
+
+
+def AddressFactory(**kwargs):
+    defaults = {
+        "user": kwargs.get("user") or UserFactory(),
+        "province": "Test Province",
+        "city": "Test City",
+        "postal_code": f"{uuid.uuid4().int % 100000:05d}",
+        "address_detail": "123 Test Street",
+        "receiver_name": "Test Receiver",
+        "receiver_phone_number": f"+1999999{_next_suffix():05d}",
+    }
+    defaults.update(kwargs)
+    return Address.objects.create(**defaults)
