@@ -6,24 +6,33 @@ import logging
 logger = logging.getLogger(__name__)
 
 
+class ShippingProviderError(Exception):
+    """Custom exception for shipping provider errors."""
+    def __init__(self, message, status_code=None):
+        super().__init__(message)
+        self.status_code = status_code
+
+
 class ShippingProvider(ABC):
     @abstractmethod
     def create_shipment(self, order):
         pass
 
     @abstractmethod
-    def get_shipment_tracking(self, tracking_code):
+    def get_shipment_tracking(self, parcel_no):
         pass
 
     @abstractmethod
-    def cancel_shipment(self, tracking_code):
+    def cancel_shipment(self, parcel_no):
         pass
 
 
 class PostexShippingProvider(ShippingProvider):
     def __init__(self):
         self.api_key = getattr(settings, 'POSTEX_API_KEY', None)
-        self.api_url = 'https://api.postex.ir/api'
+        if not self.api_key:
+            raise ValueError("POSTEX_API_KEY is not configured in settings.")
+        self.api_url = 'https://api.postex.ir'
 
     def _get_headers(self):
         return {
@@ -31,7 +40,29 @@ class PostexShippingProvider(ShippingProvider):
             'x-api-key': self.api_key,
         }
 
+    def _handle_response(self, response, context_message):
+        if 200 <= response.status_code < 300:
+            return response.json()
+
+        try:
+            error_data = response.json()
+        except ValueError:
+            error_data = response.text
+
+        logger.error(f"{context_message} | Status: {response.status_code}, Response: {error_data}")
+        raise ShippingProviderError(f"{context_message}: {error_data}", status_code=response.status_code)
+
     def create_shipment(self, order):
+        # Assuming each product has dimensions and properties. Aggregating them is complex.
+        # For simplicity, we'll use the dimensions of the largest item and sum the weights.
+        # A more advanced implementation would use a packing algorithm.
+        total_weight = int(sum(item.product.weight * item.quantity for item in order.items.all()))
+        max_length = max(item.product.length for item in order.items.all())
+        max_width = max(item.product.width for item in order.items.all())
+        max_height = max(item.product.height for item in order.items.all())
+        is_fragile = any(item.product.is_fragile for item in order.items.all())
+        is_liquid = any(item.product.is_liquid for item in order.items.all())
+
         parcels = [{
             "to": {
                 "contact": {
@@ -44,77 +75,96 @@ class PostexShippingProvider(ShippingProvider):
                     "postal_code": order.address.postal_code,
                 }
             },
-            "parcel_items": [{"name": item.product.name, "count": item.quantity} for item in order.items.all()],
+            "parcel_items": [{"name": item.product.name, "count": item.quantity, "amount": int(item.product.price)} for item in order.items.all()],
             "parcel_properties": {
-                "total_weight": int(sum(item.product.weight * item.quantity for item in order.items.all())),
+                "total_weight": total_weight,
                 "total_value": int(order.total_payable),
+                "length": int(max_length),
+                "width": int(max_width),
+                "height": int(max_height),
+                "is_fragile": is_fragile,
+                "is_liquid": is_liquid,
             }
         }]
         data = {
             "collection_type": "pick_up",
             "parcels": parcels
         }
-        logger.info(f"Creating Postex shipment for order {order.order_id}: {data}")
-        try:
-            response = requests.post(f'{self.api_url}/v1/parcels/bulk', json=data, headers=self._get_headers())
-            response.raise_for_status()
-            logger.info(f"Postex shipment response for order {order.order_id}: {response.json()}")
-            return response.json()
-        except requests.exceptions.RequestException as e:
-            logger.error(f"Error creating Postex shipment for order {order.order_id}: {e}")
-            return {'error': str(e)}
 
-    def get_shipment_tracking(self, tracking_code):
-        logger.info(f"Getting Postex shipment tracking for tracking_code {tracking_code}")
+        url = f'{self.api_url}/api/v1/parcels/bulk'
+        context = f"Error creating Postex shipment for order {order.order_id}"
+        logger.info(f"Creating Postex shipment for order {order.order_id} with data: {data}")
+
         try:
-            # The documentation is a bit ambiguous here, assuming courier is 'postex'
-            response = requests.get(f'{self.api_url}/v1/tracking/events/postex/{tracking_code}', headers=self._get_headers())
-            response.raise_for_status()
-            logger.info(f"Postex shipment tracking response for tracking_code {tracking_code}: {response.json()}")
-            return response.json()
+            response = requests.post(url, json=data, headers=self._get_headers(), timeout=15)
+            return self._handle_response(response, context)
         except requests.exceptions.RequestException as e:
-            logger.error(f"Error getting Postex shipment tracking for tracking_code {tracking_code}: {e}")
-            return {'error': str(e)}
+            logger.error(f"{context}: {e}")
+            raise ShippingProviderError(f"{context}: {e}")
+
+    def get_shipment_tracking(self, parcel_no):
+        url = f'{self.api_url}/api/v1/tracking/events/{parcel_no}'
+        context = f"Error getting Postex tracking for parcel_no {parcel_no}"
+        logger.info(f"Getting Postex shipment tracking for parcel_no {parcel_no}")
+
+        try:
+            response = requests.get(url, headers=self._get_headers(), timeout=10)
+            return self._handle_response(response, context)
+        except requests.exceptions.RequestException as e:
+            logger.error(f"{context}: {e}")
+            raise ShippingProviderError(f"{context}: {e}")
 
     def get_shipping_quote(self, order):
+        total_weight = int(sum(item.product.weight * item.quantity for item in order.items.all()))
+        max_length = max(item.product.length for item in order.items.all())
+        max_width = max(item.product.width for item in order.items.all())
+        max_height = max(item.product.height for item in order.items.all())
+
         parcels = [{
             "to_city_code": order.address.city_code,
-            "total_weight": int(sum(item.product.weight * item.quantity for item in order.items.all())),
+            "total_weight": total_weight,
             "total_value": int(order.total_payable),
+            "length": int(max_length),
+            "width": int(max_width),
+            "height": int(max_height),
         }]
         data = {
             "collection_type": "pick_up",
             "from_city_code": settings.POSTEX_FROM_CITY_CODE,
             "parcels": parcels,
         }
-        logger.info(f"Getting Postex shipping quote for order {order.order_id}: {data}")
-        try:
-            response = requests.post(f'{self.api_url}/v1/shipping/quotes', json=data, headers=self._get_headers())
-            response.raise_for_status()
-            logger.info(f"Postex shipping quote response for order {order.order_id}: {response.json()}")
-            return response.json()
-        except requests.exceptions.RequestException as e:
-            logger.error(f"Error getting Postex shipping quote for order {order.order_id}: {e}")
-            return {'error': str(e)}
 
-    def cancel_shipment(self, tracking_code):
-        logger.info(f"Canceling Postex shipment for tracking_code {tracking_code}")
+        url = f'{self.api_url}/api/v1/shipping/quotes'
+        context = f"Error getting Postex shipping quote for order {order.order_id}"
+        logger.info(f"Getting Postex shipping quote for order {order.order_id} with data: {data}")
+
         try:
-            response = requests.delete(f'{self.api_url}/v1/parcels/{tracking_code}', headers=self._get_headers())
-            response.raise_for_status()
-            logger.info(f"Postex shipment cancellation response for tracking_code {tracking_code}: {response.json()}")
-            return response.json()
+            response = requests.post(url, json=data, headers=self._get_headers(), timeout=10)
+            return self._handle_response(response, context)
         except requests.exceptions.RequestException as e:
-            logger.error(f"Error canceling Postex shipment for tracking_code {tracking_code}: {e}")
-            return {'error': str(e)}
+            logger.error(f"{context}: {e}")
+            raise ShippingProviderError(f"{context}: {e}")
+
+    def cancel_shipment(self, parcel_no):
+        url = f'{self.api_url}/api/v1/parcels/{parcel_no}'
+        context = f"Error canceling Postex shipment for parcel_no {parcel_no}"
+        logger.info(f"Canceling Postex shipment for parcel_no {parcel_no}")
+
+        try:
+            response = requests.delete(url, headers=self._get_headers(), timeout=10)
+            return self._handle_response(response, context)
+        except requests.exceptions.RequestException as e:
+            logger.error(f"{context}: {e}")
+            raise ShippingProviderError(f"{context}: {e}")
 
     def get_cities(self):
+        url = f'{self.api_url}/api/v1/locality/cities/all'
+        context = "Error getting Postex city list"
         logger.info("Getting Postex city list")
+
         try:
-            response = requests.get(f'{self.api_url}/v1/locality/cities/all', headers=self._get_headers())
-            response.raise_for_status()
-            logger.info("Successfully retrieved Postex city list")
-            return response.json()
+            response = requests.get(url, headers=self._get_headers(), timeout=10)
+            return self._handle_response(response, context)
         except requests.exceptions.RequestException as e:
-            logger.error(f"Error getting Postex city list: {e}")
-            return {'error': str(e)}
+            logger.error(f"{context}: {e}")
+            raise ShippingProviderError(f"{context}: {e}")
