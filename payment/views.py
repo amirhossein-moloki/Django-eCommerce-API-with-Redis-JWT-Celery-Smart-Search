@@ -51,99 +51,66 @@ class PaymentProcessAPIView(APIView):
             )
 
 
-@extend_schema_view(
-    post=extend_schema(
-        operation_id="payment_webhook",
-        description="Webhook for Zibal payment gateway to send payment status updates.",
-        tags=["Payments"],
-        request=None,
-        responses={
-            200: OpenApiResponse(description="Webhook received and accepted for processing."),
-            400: OpenApiResponse(description="Invalid webhook request (e.g., missing headers, invalid IP).")
-        },
-    )
-)
-class PaymentWebhookAPIView(APIView):
-    permission_classes = [AllowAny]
-
-    def post(self, request, *args, **kwargs):
-        # Security: Validate the webhook signature
-        gateway_signature = request.headers.get('X-Gateway-Signature')
-        if not gateway_signature:
-            logger.warning("Webhook request missing X-Gateway-Signature header.")
-            return ApiResponse.error(message="Invalid signature.", status_code=status.HTTP_403_FORBIDDEN)
-
-        computed_signature = hmac.new(
-            settings.ZIBAL_WEBHOOK_SECRET.encode('utf-8'),
-            request.body,
-            'sha256'
-        ).hexdigest()
-
-        if not hmac.compare_digest(gateway_signature, computed_signature):
-            logger.warning("Invalid webhook signature.")
-            return ApiResponse.error(message="Invalid signature.", status_code=status.HTTP_403_FORBIDDEN)
-
-        # Security: Check the source IP (optional but recommended)
-        client_ip = get_client_ip(request)
-        if client_ip not in settings.ZIBAL_ALLOWED_IPS:
-            logger.warning(f"Webhook request from unauthorized IP: {client_ip}")
-            return ApiResponse.error(message="Invalid source IP.", status_code=status.HTTP_403_FORBIDDEN)
-
-        data = request.data
-        track_id = data.get('trackId')
-        success = data.get('success')
-
-        if not track_id:
-            return ApiResponse.error(message="trackId is required.", status_code=status.HTTP_400_BAD_REQUEST)
-
-        # Idempotency Check
-        try:
-            order = Order.objects.get(payment_track_id=track_id)
-            if order.payment_status == Order.PaymentStatus.SUCCESS:
-                logger.info(f"Webhook for track_id {track_id} already processed successfully.")
-                return ApiResponse.success(message="Webhook already processed.", status_code=status.HTTP_200_OK)
-        except Order.DoesNotExist:
-            # This can happen if the webhook arrives before the order is saved.
-            # The Celery task will handle this gracefully.
-            pass
-
-        # Asynchronously process the payment to avoid blocking the gateway
-        process_successful_payment.delay(track_id, success)
-
-        return ApiResponse.success(message="Webhook received.", status_code=status.HTTP_200_OK)
+from .gateways import ZibalGatewayError
 
 
 @extend_schema_view(
     get=extend_schema(
-        operation_id="payment_verify",
-        description="Verify a Zibal payment.",
+        operation_id="payment_callback_and_verify",
+        description="Handles the callback from Zibal after a payment attempt and performs server-side verification.",
         tags=["Payments"],
         responses={
             200: OpenApiResponse(description="Payment verified successfully."),
-            400: OpenApiResponse(description="Invalid payment verification request.")
+            400: OpenApiResponse(description="Invalid callback request or verification failed."),
+            404: OpenApiResponse(description="Order not found for the given trackId."),
         },
     )
 )
 class PaymentVerifyAPIView(APIView):
+    """
+    This view handles the user's return from the Zibal payment gateway.
+    It receives the trackId and success status from Zibal via query parameters.
+    It then immediately calls the verification service to confirm the payment
+    with Zibal's server, ensuring a secure verification process.
+    """
+    permission_classes = [AllowAny]
+
     def get(self, request, *args, **kwargs):
         track_id = request.query_params.get('trackId')
+        success = request.query_params.get('success')
+
         if not track_id:
+            logger.error("Zibal callback received without trackId.")
             return ApiResponse.error(
-                message="trackId is required.",
+                message="Required parameter 'trackId' is missing.",
                 status_code=status.HTTP_400_BAD_REQUEST
             )
+
+        if success != '1':
+            logger.warning(f"Zibal callback for trackId {track_id} indicates a failed or canceled payment.")
+            # Optionally, update the order status to FAILED here if needed.
+            return ApiResponse.error(
+                message="Payment was not successful or was canceled by the user.",
+                status_code=status.HTTP_400_BAD_REQUEST
+            )
+
         try:
             message = services.verify_payment(track_id)
+            # In a real frontend application, you would redirect the user to a success page.
+            # For an API, returning a success message is appropriate.
             return ApiResponse.success(
                 message=message,
                 status_code=status.HTTP_200_OK
             )
         except Order.DoesNotExist:
+            logger.error(f"Verification failed: No order found for trackId {track_id}.")
             return ApiResponse.error(
                 message="Order not found.",
                 status_code=status.HTTP_404_NOT_FOUND
             )
-        except ValueError as e:
+        except (ValueError, ZibalGatewayError) as e:
+            logger.error(f"Payment verification error for trackId {track_id}: {e}")
+            # In a real frontend application, you would redirect the user to a failure page.
             return ApiResponse.error(
                 message=str(e),
                 status_code=status.HTTP_400_BAD_REQUEST

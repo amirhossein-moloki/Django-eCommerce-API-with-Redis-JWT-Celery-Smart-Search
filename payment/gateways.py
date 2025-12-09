@@ -18,6 +18,11 @@ class PaymentGateway(ABC):
         pass
 
 
+class ZibalGatewayError(Exception):
+    """Custom exception for Zibal gateway errors."""
+    pass
+
+
 class ZibalGateway(PaymentGateway):
     def __init__(self):
         self.merchant_id = getattr(settings, 'ZIBAL_MERCHANT_ID', None)
@@ -47,11 +52,15 @@ class ZibalGateway(PaymentGateway):
         try:
             response = self.session.post(f'{self.api_url}/request', json=data, headers=headers, timeout=5)
             response.raise_for_status()
-            logger.info(f"Zibal payment request response for order {order_id}: {response.json()}")
-            return response.json()
+            response_data = response.json()
+            logger.info(f"Zibal payment request response for order {order_id}: {response_data}")
+            if response_data.get('result') != 100:
+                raise ZibalGatewayError(
+                    f"Zibal request failed with result {response_data.get('result')}: {response_data.get('message')}")
+            return response_data
         except requests.exceptions.RequestException as e:
             logger.error(f"Error creating Zibal payment request for order {order_id}: {e}")
-            return {'error': str(e)}
+            raise ZibalGatewayError(f"Network error creating payment request for order {order_id}") from e
 
     def verify_payment(self, payload_or_authority):
         headers = {'Content-Type': 'application/json'}
@@ -63,8 +72,9 @@ class ZibalGateway(PaymentGateway):
         try:
             response = self.session.post(f'{self.api_url}/verify', json=data, headers=headers, timeout=5)
             response.raise_for_status()
-            logger.info(f"Zibal payment verification response for trackId {payload_or_authority}: {response.json()}")
-            return response.json()
+            response_data = response.json()
+            logger.info(f"Zibal payment verification response for trackId {payload_or_authority}: {response_data}")
+            return response_data
         except requests.exceptions.RequestException as e:
             logger.error(f"Error verifying Zibal payment for trackId {payload_or_authority}: {e}")
-            return {'error': str(e)}
+            raise ZibalGatewayError(f"Network error verifying payment for trackId {payload_or_authority}") from e
