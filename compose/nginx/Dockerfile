@@ -1,7 +1,7 @@
 FROM nginx:1.25.3-alpine
 
-# Install necessary packages for Certbot and SSL management
-RUN apk add --no-cache certbot certbot-nginx openssl curl gettext
+# Install necessary packages for environment variable substitution and dummy cert generation
+RUN apk add --no-cache openssl curl gettext
 
 # Remove the default Nginx configuration
 RUN rm /etc/nginx/nginx.conf /etc/nginx/conf.d/default.conf

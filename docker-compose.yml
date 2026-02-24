@@ -73,9 +73,8 @@ services:
       - certbot_certs:/etc/letsencrypt
       - certbot_webroot:/var/www/certbot
     environment:
-      - DOMAIN=${DOMAIN:-localhost}
-      - EMAIL=${CERTBOT_EMAIL:-dev@example.com}
-      - CERTBOT_ENABLED=${CERTBOT_ENABLED:-false}
+      - DOMAIN=${DOMAIN}
+      - EMAIL=${CERTBOT_EMAIL}
     depends_on:
       - web
     restart: unless-stopped
@@ -84,17 +83,12 @@ services:
   certbot:
     image: certbot/certbot:v2.10.0
     container_name: certbot
-    profiles: ["certbot"]
     volumes:
       - certbot_certs:/etc/letsencrypt
       - certbot_webroot:/var/www/certbot
-    depends_on:
-      - nginx
-    entrypoint: >
-      sh -c "certbot certonly --webroot -w /var/www/certbot
-      --email ${CERTBOT_EMAIL:-dev@example.com}
-      --agree-tos --no-eff-email -d ${DOMAIN:-localhost}"
-    restart: "no"
+    # This command checks for renewal every 12 hours.
+    entrypoint: "/bin/sh -c 'trap exit TERM; while :; do certbot renew; sleep 12h & wait $${!}; done;'"
+    restart: unless-stopped
 
   # --- Celery Worker ---
   celery_worker:
