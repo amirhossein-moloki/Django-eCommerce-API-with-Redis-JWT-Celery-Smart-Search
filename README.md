@@ -26,6 +26,10 @@ This setup consists of the following services:
 - **`celery_worker`** (`celery_worker`): A Celery worker process for executing asynchronous background tasks.
 - **`celery_beat`** (`celery_beat`): The Celery beat scheduler for running periodic tasks.
 
+## 🇮🇷 راهنمای فارسی (Persian Guide)
+
+اگر قصد دارید پروژه را برای اولین بار روی سرور استقرار دهید و از **Cloudflare** استفاده می‌کنید، حتماً [**راهنمای استقرار و تنظیمات کلادفلر**](DEPLOYMENT_CLOUDFLARE_FA.md) را مطالعه کنید. این راهنما شامل نکات حیاتی برای دریافت موفقیت‌آمیز گواهی SSL در محیط کلادفلر است.
+
 ##  Prerequisites
 
 Before you begin, ensure you have the following installed on your server:
