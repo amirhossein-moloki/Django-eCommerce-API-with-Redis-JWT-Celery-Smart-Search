@@ -28,7 +28,7 @@ if [ ! -f "$CERT_DIR/fullchain.pem" ]; then
   openssl req -x509 -nodes -newkey rsa:2048 -days 1 \
     -keyout "$CERT_DIR/privkey.pem" \
     -out "$CERT_DIR/fullchain.pem" \
-    -subj "/CN=localhost"
+    -subj "/CN=$DOMAIN"
   log "Dummy certificate generated successfully."
 else
   log "Existing certificate found in $CERT_DIR. Skipping dummy cert generation."
