@@ -28,77 +28,94 @@ CERT_FILE="$CERT_DIR/fullchain.pem"
 DHPARAMS_FILE="/etc/letsencrypt/ssl-dhparams.pem"
 HTTP_CONF="/etc/nginx/conf.d/http.conf"
 HTTPS_CONF="/etc/nginx/conf.d/https.conf"
+HTTP_TEMPLATE="/etc/nginx/conf.d/http.conf.template"
+HTTPS_TEMPLATE="/etc/nginx/conf.d/https.conf.template"
+HTTP_LOCAL_TEMPLATE="/etc/nginx/conf.d/http.local.conf.template"
+
+# Function to update Nginx configs from templates
+update_configs() {
+  log "Substituting environment variables in Nginx config..."
+  if [ "$CERTBOT_ENABLED" = "true" ]; then
+    envsubst '${DOMAIN}' < "$HTTP_TEMPLATE" > "$HTTP_CONF"
+    envsubst '${DOMAIN}' < "$HTTPS_TEMPLATE" > "$HTTPS_CONF"
+  else
+    envsubst '${DOMAIN}' < "$HTTP_LOCAL_TEMPLATE" > "$HTTP_CONF"
+    rm -f "$HTTPS_CONF"
+  fi
+}
 
 # --- Main Logic ---
 
 if [ "$CERTBOT_ENABLED" = "true" ]; then
-  # Step 1: Check if a certificate already exists.
+  # Step 1: Handle SSL Certificates
   if [ -f "$CERT_FILE" ]; then
-    log "Certificate found for $DOMAIN. Skipping acquisition."
+    log "Certificate found for $DOMAIN. Skipping initial acquisition."
   else
-    log "Certificate not found for $DOMAIN. Starting acquisition process..."
-
-    # Temporarily disable the HTTPS config to start Nginx on port 80
-    if [ -f "$HTTPS_CONF" ]; then
-      log "Temporarily moving HTTPS config to allow Certbot challenge."
-      mv "$HTTPS_CONF" "$HTTPS_CONF.disabled"
+    # Check if maybe it's in the -0001 directory already
+    if [ -d "/etc/letsencrypt/live/$DOMAIN-0001" ]; then
+        log "Found existing versioned certificate directory ($DOMAIN-0001). Creating symlink..."
+        mkdir -p "/etc/letsencrypt/live"
+        rm -rf "$CERT_DIR"
+        ln -s "$DOMAIN-0001" "$CERT_DIR"
     fi
 
-    # Start Nginx in the background to serve the challenge
-    nginx -g "daemon on;"
+    # Check again after potential symlink fix
+    if [ ! -f "$CERT_FILE" ]; then
+        log "Certificate not found for $DOMAIN. Generating dummy certificate for initial start..."
+        mkdir -p "$CERT_DIR"
+        openssl req -x509 -nodes -newkey rsa:2048 -days 1 \
+          -keyout "$CERT_DIR/privkey.pem" \
+          -out "$CERT_DIR/fullchain.pem" \
+          -subj "/CN=$DOMAIN"
 
-    # Request the certificate
-    log "Requesting Let's Encrypt certificate for $DOMAIN..."
-    certbot certonly \
-      --webroot -w /var/www/certbot \
-      --email "$EMAIL" \
-      --domain "$DOMAIN" \
-      --rsa-key-size 4096 \
-      --agree-tos \
-      --non-interactive \
-      --force-renewal
+        # Prepare config with dummy certs
+        update_configs
 
-    # Stop the temporary Nginx instance
-    log "Stopping temporary Nginx server."
-    nginx -s stop
-    # Wait for Nginx to fully stop
-    while pgrep -x nginx > /dev/null; do sleep 1; done
+        log "Starting Nginx in the background for Certbot challenge..."
+        nginx -g "daemon on;"
 
-    # Restore the HTTPS config
-    if [ -f "$HTTPS_CONF.disabled" ]; then
-      log "Restoring HTTPS config."
-      mv "$HTTPS_CONF.disabled" "$HTTPS_CONF"
+        log "Requesting Let's Encrypt certificate for $DOMAIN..."
+        certbot certonly \
+          --webroot -w /var/www/certbot \
+          --email "$EMAIL" \
+          --domain "$DOMAIN" \
+          --rsa-key-size 4096 \
+          --agree-tos \
+          --non-interactive \
+          --force-renewal
+
+        # Check if Certbot created a versioned directory
+        if [ -d "/etc/letsencrypt/live/$DOMAIN-0001" ]; then
+          log "Detected versioned certificate directory ($DOMAIN-0001). Fixing path for Nginx..."
+          rm -rf "$CERT_DIR"
+          ln -s "$DOMAIN-0001" "$CERT_DIR"
+        fi
+
+        log "Stopping temporary Nginx server..."
+        nginx -s stop
+        # Wait for Nginx to stop (using a simpler check if pgrep is missing)
+        sleep 2
     fi
   fi
 
-  # Step 2: Generate strong Diffie-Hellman parameters for enhanced security.
-  # This is done in the background if the file doesn't exist.
+  # Step 2: Generate strong Diffie-Hellman parameters
   if [ ! -f "$DHPARAMS_FILE" ]; then
     log "Generating strong Diffie-Hellman parameters (4096 bits)..."
-    log "This may take a few minutes."
     openssl dhparam -out "$DHPARAMS_FILE" 4096 &
   fi
 
-  # Step 3: Setup a cron job for automatic certificate renewal.
+  # Step 3: Setup renewal cron
   log "Setting up cron job for automatic certificate renewal."
-  echo "0 3 * * * certbot renew --quiet && nginx -s reload" > /etc/crontabs/root
+  # The renewal script ensures the symlink is maintained
+  RENEW_CMD="certbot renew --quiet && ( [ -d /etc/letsencrypt/live/$DOMAIN-0001 ] && [ ! -L $CERT_DIR ] && rm -rf $CERT_DIR && ln -s $DOMAIN-0001 $CERT_DIR ); nginx -s reload"
+  echo "0 3 * * * $RENEW_CMD" > /etc/crontabs/root
   crond -b
 else
   log "CERTBOT_ENABLED=false; skipping certificate setup."
 fi
 
-# --- Final Execution ---
-log "Substituting environment variables in Nginx config..."
-if [ "$CERTBOT_ENABLED" = "true" ]; then
-  envsubst '${DOMAIN}' < /etc/nginx/conf.d/http.conf.template > /etc/nginx/conf.d/http.conf
-  envsubst '${DOMAIN}' < /etc/nginx/conf.d/https.conf.template > /etc/nginx/conf.d/https.conf
-else
-  envsubst '${DOMAIN}' < /etc/nginx/conf.d/http.local.conf.template > /etc/nginx/conf.d/http.conf
-  if [ -f /etc/nginx/conf.d/https.conf ]; then
-    rm /etc/nginx/conf.d/https.conf
-  fi
-fi
+# Final config update to ensure everything is correct
+update_configs
 
 log "Nginx is configured. Starting main process..."
-# Execute the command passed to the script (e.g., `nginx -g 'daemon off;'`)
 exec "$@"
