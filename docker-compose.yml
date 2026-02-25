@@ -81,6 +81,8 @@ services:
     restart: unless-stopped
 
   # --- Certbot (Let's Encrypt) ---
+  # Note: The nginx container already handles automatic certificate acquisition and renewal.
+  # This service is provided as a utility for manual certificate management if needed.
   certbot:
     image: certbot/certbot:v2.10.0
     container_name: certbot

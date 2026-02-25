@@ -3,6 +3,7 @@
 <div align="center">
   <img src="https://raw.githubusercontent.com/amirhossein-moloki/django-ecommerce-api/main/docs/images/logo.png" alt="Hypex Logo" width="150"/>
   <p><strong>A production-ready, Dockerized deployment for the Hypex eCommerce API.</strong></p>
+  <p>🇮🇷 <strong><a href="DEPLOYMENT_CLOUDFLARE_FA.md">راهنمای استقرار فارسی (Cloudflare & SSL)</a></strong></p>
 </div>
 
 This project provides a complete, multi-container Docker setup for deploying the Hypex eCommerce API. It is designed for production use and includes a full suite of services orchestrated by Docker Compose, featuring automated SSL certificate acquisition and renewal with Nginx and Certbot.
